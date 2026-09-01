@@ -2,9 +2,9 @@
 
 module.exports = async function handler(req, res) {
 
-    /*
-    Allow requests from your frontend
-    */
+    // ==========================================
+    // CORS
+    // ==========================================
 
     res.setHeader(
         "Access-Control-Allow-Origin",
@@ -22,9 +22,9 @@ module.exports = async function handler(req, res) {
     );
 
 
-    /*
-    Browser preflight request
-    */
+    // ==========================================
+    // PREFLIGHT
+    // ==========================================
 
     if (req.method === "OPTIONS") {
 
@@ -33,16 +33,15 @@ module.exports = async function handler(req, res) {
     }
 
 
-    /*
-    Only allow POST requests
-    */
+    // ==========================================
+    // ONLY POST
+    // ==========================================
 
     if (req.method !== "POST") {
 
         return res.status(405).json({
 
-            error:
-                "Method not allowed"
+            error: "Method not allowed"
 
         });
 
@@ -50,6 +49,10 @@ module.exports = async function handler(req, res) {
 
 
     try {
+
+        // ======================================
+        // READ REQUEST
+        // ======================================
 
         const body =
             req.body || {};
@@ -72,18 +75,18 @@ module.exports = async function handler(req, res) {
         }
 
 
-        /*
-        Check API key
-        */
+        // ======================================
+        // GROQ API KEY
+        // ======================================
 
         const apiKey =
-            process.env.OPENAI_API_KEY;
+            process.env.GROQ_API_KEY;
 
 
         if (!apiKey) {
 
             console.error(
-                "OPENAI_API_KEY is missing"
+                "❌ GROQ_API_KEY is missing"
             );
 
 
@@ -97,17 +100,21 @@ module.exports = async function handler(req, res) {
         }
 
 
-        /*
-        Call OpenAI
-        */
+        // ======================================
+        // CALL GROQ
+        // ======================================
+
+        console.log(
+            "🌐 Sending request to Groq..."
+        );
+
 
         const response =
             await fetch(
-                "https://api.openai.com/v1/responses",
+                "https://api.groq.com/openai/v1/chat/completions",
                 {
 
-                    method:
-                        "POST",
+                    method: "POST",
 
                     headers: {
 
@@ -123,10 +130,33 @@ module.exports = async function handler(req, res) {
                         JSON.stringify({
 
                             model:
-                                "gpt-4.1-mini",
+                                "llama-3.3-70b-versatile",
 
-                            input:
-                                message
+                            messages: [
+
+                                {
+                                    role:
+                                        "system",
+
+                                    content:
+                                        "You are AI Life Assistant, a helpful, friendly and intelligent personal AI assistant. Answer the user's question clearly and naturally."
+                                },
+
+                                {
+                                    role:
+                                        "user",
+
+                                    content:
+                                        message
+                                }
+
+                            ],
+
+                            temperature:
+                                0.7,
+
+                            max_tokens:
+                                1000
 
                         })
 
@@ -134,18 +164,28 @@ module.exports = async function handler(req, res) {
             );
 
 
+        // ======================================
+        // READ RESPONSE
+        // ======================================
+
         const data =
             await response.json();
 
 
-        /*
-        Handle OpenAI errors
-        */
+        console.log(
+            "🌐 Groq status:",
+            response.status
+        );
+
+
+        // ======================================
+        // GROQ ERROR
+        // ======================================
 
         if (!response.ok) {
 
             console.error(
-                "OpenAI API error:",
+                "❌ Groq API error:",
                 data
             );
 
@@ -156,56 +196,58 @@ module.exports = async function handler(req, res) {
 
                 error:
                     data?.error?.message ||
-                    "AI request failed"
+                    "Groq AI request failed"
 
             });
 
         }
 
 
-        /*
-        Extract AI response text
-        */
+        // ======================================
+        // EXTRACT REPLY
+        // ======================================
 
-        let reply = "";
+        const reply =
+            data?.choices?.[0]?.message?.content;
 
 
-        if (
-            data.output_text
-        ) {
+        if (!reply) {
 
-            reply =
-                data.output_text;
+            return res.status(500).json({
 
-        }
+                error:
+                    "Groq returned no AI response"
 
-        else {
-
-            reply =
-                "I received your message, but no text reply was returned.";
+            });
 
         }
 
 
-        /*
-        Return to your frontend
-        */
+        // ======================================
+        // SUCCESS
+        // ======================================
+
+        console.log(
+            "✅ Groq AI responded successfully"
+        );
+
 
         return res.status(200).json({
 
             success: true,
 
             reply:
-                reply
+                String(reply).trim()
 
         });
 
     }
 
+
     catch (error) {
 
         console.error(
-            "Backend error:",
+            "❌ Backend error:",
             error
         );
 
