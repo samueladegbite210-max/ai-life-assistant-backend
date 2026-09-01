@@ -85,19 +85,22 @@ module.exports = async function handler(req, res) {
 
         if (!apiKey) {
 
-            console.error(
-                "❌ GROQ_API_KEY is missing"
-            );
+    console.error(
+        "❌ GROQ_API_KEY is missing"
+    );
 
+    return res.status(500).json({
 
-            return res.status(500).json({
+        error:
+            "GROQ_API_KEY is missing"
 
-                error:
-                    "Server AI key is not configured"
+    });
 
-            });
+}
 
-        }
+console.log(
+    "✅ GROQ_API_KEY detected"
+);
 
 
         // ======================================
