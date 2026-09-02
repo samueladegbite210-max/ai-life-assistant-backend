@@ -225,7 +225,7 @@ Your responses should feel similar to a modern professional AI assistant such as
             0.6,
 
         max_tokens:
-            280
+            300
 
     })
 }
