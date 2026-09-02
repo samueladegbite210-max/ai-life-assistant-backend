@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
 
 
     // ==========================================
-    // PREFLIGHT
+    // OPTIONS / PREFLIGHT
     // ==========================================
 
     if (req.method === "OPTIONS") {
@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
     try {
 
         // ======================================
-        // READ REQUEST
+        // GET MESSAGE
         // ======================================
 
         const body =
@@ -85,32 +85,28 @@ module.exports = async function handler(req, res) {
 
         if (!apiKey) {
 
-    console.error(
-        "❌ GROQ_API_KEY is missing"
-    );
+            console.error(
+                "❌ GROQ_API_KEY is missing"
+            );
 
-    return res.status(500).json({
+            return res.status(500).json({
 
-        error:
-            "GROQ_API_KEY is missing"
+                error:
+                    "Groq API key is not configured"
 
-    });
+            });
 
-}
+        }
 
-console.log(
-    "✅ GROQ_API_KEY detected"
-);
+
+        console.log(
+            "🟢 GROQ API KEY FOUND"
+        );
 
 
         // ======================================
         // CALL GROQ
         // ======================================
-
-        console.log(
-            "🌐 Sending request to Groq..."
-        );
-
 
         const response =
             await fetch(
@@ -133,7 +129,7 @@ console.log(
                         JSON.stringify({
 
                             model:
-                                "llama-3.3-70b-versatile",
+                                "openai/gpt-oss-20b",
 
                             messages: [
 
@@ -142,7 +138,7 @@ console.log(
                                         "system",
 
                                     content:
-                                        "You are AI Life Assistant, a helpful, friendly and intelligent personal AI assistant. Answer the user's question clearly and naturally."
+                                        "You are AI Life Assistant, a helpful, friendly and intelligent personal AI assistant. Give clear, useful and natural answers."
                                 },
 
                                 {
@@ -207,7 +203,7 @@ console.log(
 
 
         // ======================================
-        // EXTRACT REPLY
+        // EXTRACT RESPONSE
         // ======================================
 
         const reply =
@@ -215,6 +211,12 @@ console.log(
 
 
         if (!reply) {
+
+            console.error(
+                "❌ Groq returned no text:",
+                data
+            );
+
 
             return res.status(500).json({
 
@@ -237,7 +239,8 @@ console.log(
 
         return res.status(200).json({
 
-            success: true,
+            success:
+                true,
 
             reply:
                 String(reply).trim()
@@ -250,7 +253,7 @@ console.log(
     catch (error) {
 
         console.error(
-            "❌ Backend error:",
+            "❌ BACKEND ERROR:",
             error
         );
 
