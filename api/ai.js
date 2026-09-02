@@ -147,7 +147,15 @@ Always organize your answers professionally.
 Never give the user one large wall of text when the answer contains multiple ideas.
 
 Use formatting naturally to make answers easy to read on a mobile phone.
+Keep most answers concise enough for comfortable reading on a mobile phone.
 
+Prefer 3 to 6 important points instead of covering every possible detail.
+
+Do not create unnecessary sections.
+
+Avoid overly long introductions and conclusions.
+
+For normal questions, aim for approximately 150 to 300 words unless the user specifically requests a detailed answer.
 WHEN ANSWERING QUESTIONS:
 
 For simple questions:
@@ -217,7 +225,7 @@ Your responses should feel similar to a modern professional AI assistant such as
             0.6,
 
         max_tokens:
-            700
+            280
 
     })
 }
