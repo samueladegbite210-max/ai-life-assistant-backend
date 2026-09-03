@@ -51,11 +51,12 @@ module.exports = async function handler(req, res) {
     try {
 
         // ======================================
-        // GET MESSAGE
+        // GET REQUEST DATA
         // ======================================
 
         const body =
             req.body || {};
+
 
         const message =
             String(
@@ -63,12 +64,16 @@ module.exports = async function handler(req, res) {
             ).trim();
 
 
-        if (!message) {
+        const image =
+            body.image || null;
+
+
+        if (!message && !image) {
 
             return res.status(400).json({
 
                 error:
-                    "Message is required"
+                    "Message or image is required"
 
             });
 
@@ -89,6 +94,7 @@ module.exports = async function handler(req, res) {
                 "❌ GROQ_API_KEY is missing"
             );
 
+
             return res.status(500).json({
 
                 error:
@@ -99,8 +105,99 @@ module.exports = async function handler(req, res) {
         }
 
 
+        // ======================================
+        // SYSTEM PROMPT
+        // ======================================
+
+        const systemPrompt = `You are AI Life Assistant, a professional, intelligent, and helpful AI assistant.
+
+Provide answers that are clear, well-organized, and easy to understand on mobile devices.
+
+Use short paragraphs.
+
+Use headings, numbered lists, or bullet points when they improve readability.
+
+Avoid large walls of text.
+
+Default to moderate-length answers.
+
+For simple questions, answer directly and briefly.
+
+For complex questions, organize the answer clearly without unnecessary repetition.
+
+When analyzing an image:
+- Describe what you can actually see.
+- Do not invent details.
+- Answer the user's specific question.
+- Mention uncertainty when something is unclear.
+- Keep the response natural and professional.`;
+
+
+        // ======================================
+        // BUILD MESSAGES
+        // ======================================
+
+        let userContent;
+
+
+        // ======================================
+        // IMAGE REQUEST
+        // ======================================
+
+        if (image) {
+
+            userContent = [
+
+                {
+                    type: "text",
+
+                    text:
+                        message ||
+                        "Describe this image."
+                },
+
+                {
+                    type: "image_url",
+
+                    image_url: {
+
+                        url: image
+
+                    }
+
+                }
+
+            ];
+
+        }
+
+
+        // ======================================
+        // TEXT REQUEST
+        // ======================================
+
+        else {
+
+            userContent =
+                message;
+
+        }
+
+
+        // ======================================
+        // SELECT MODEL
+        // ======================================
+
+        const model =
+            image
+                ? "meta-llama/llama-4-scout-17b-16e-instruct"
+                : "openai/gpt-oss-20b";
+
+
         console.log(
-            "🟢 GROQ API KEY FOUND"
+            image
+                ? "🖼️ Vision request"
+                : "💬 Text request"
         );
 
 
@@ -125,110 +222,37 @@ module.exports = async function handler(req, res) {
 
                     },
 
+
                     body:
-    JSON.stringify({
+                        JSON.stringify({
 
-        model:
-            "openai/gpt-oss-20b",
+                            model: model,
 
-        messages: [
+                            messages: [
 
-            {
-                role: "system",
+                                {
+                                    role: "system",
 
-                content: `You are AI Life Assistant, a highly professional and intelligent AI assistant.
+                                    content:
+                                        systemPrompt
+                                },
 
-Your goal is to provide answers that are clear, well-structured, helpful, and easy to understand.
+                                {
+                                    role: "user",
 
-IMPORTANT RESPONSE STYLE:
+                                    content:
+                                        userContent
+                                }
 
-Always organize your answers professionally.
+                            ],
 
-Never give the user one large wall of text when the answer contains multiple ideas.
+                            temperature: 0.5,
 
-Use formatting naturally to make answers easy to read on a mobile phone.
-Keep most answers concise enough for comfortable reading on a mobile phone.
+                            max_tokens: 500
 
-Prefer 3 to 6 important points instead of covering every possible detail.
+                        })
 
-Do not create unnecessary sections.
-
-Avoid overly long introductions and conclusions.
-
-For normal questions, aim for approximately 150 to 300 words unless the user specifically requests a detailed answer.
-WHEN ANSWERING QUESTIONS:
-
-For simple questions:
-- Give a direct answer.
-- Keep it concise.
-- Do not add unnecessary explanations.
-
-For questions that require explanation:
-- Start with a short, clear introduction.
-- Break important ideas into sections.
-- Use numbered points when explaining steps.
-- Use bullet points when listing information.
-- Keep paragraphs short.
-
-For complex questions:
-- Give a brief overview first.
-- Explain the important points in logical sections.
-- End with a short conclusion when useful.
-
-WRITING STYLE:
-
-- Professional but friendly.
-- Intelligent but easy to understand.
-- Natural and conversational.
-- Clear and confident.
-- Avoid overly complicated words.
-- Avoid unnecessary filler.
-- Avoid repeating the same information.
-- Do not make answers unnecessarily long.
-
-FORMATTING:
-
-Use Markdown formatting naturally.
-
-You may use:
-- Headings
-- Bold text for important words
-- Numbered lists
-- Bullet points
-
-Do not overuse headings or formatting.
-
-MOBILE READABILITY:
-
-Your answers will be displayed inside a mobile chat application.
-
-Therefore:
-- Keep paragraphs short.
-- Separate different ideas.
-- Avoid large blocks of text.
-- Make important information easy to scan.
-
-Always prioritize clarity, organization, accuracy, and usefulness.
-
-Your responses should feel similar to a modern professional AI assistant such as ChatGPT: balanced, structured, natural, intelligent, and easy to understand.`
-            },
-
-            {
-                role: "user",
-
-                content: message
-            }
-
-        ],
-
-        temperature:
-            0.6,
-
-        max_tokens:
-            300
-
-    })
-}
+                }
             );
 
 
@@ -247,7 +271,7 @@ Your responses should feel similar to a modern professional AI assistant such as
 
 
         // ======================================
-        // GROQ ERROR
+        // ERROR
         // ======================================
 
         if (!response.ok) {
@@ -272,7 +296,7 @@ Your responses should feel similar to a modern professional AI assistant such as
 
 
         // ======================================
-        // EXTRACT RESPONSE
+        // GET AI RESPONSE
         // ======================================
 
         const reply =
@@ -308,8 +332,7 @@ Your responses should feel similar to a modern professional AI assistant such as
 
         return res.status(200).json({
 
-            success:
-                true,
+            success: true,
 
             reply:
                 String(reply).trim()
@@ -317,7 +340,6 @@ Your responses should feel similar to a modern professional AI assistant such as
         });
 
     }
-
 
     catch (error) {
 
