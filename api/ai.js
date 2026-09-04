@@ -189,9 +189,9 @@ When analyzing an image:
         // ======================================
 
         const model =
-            image
-                ? "meta-llama/llama-4-scout-17b-16e-instruct"
-                : "openai/gpt-oss-20b";
+    image
+        ? "qwen/qwen3.6-27b"
+        : "openai/gpt-oss-20b";
 
 
         console.log(
