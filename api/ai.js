@@ -2,43 +2,167 @@
 
 module.exports = async function handler(req, res) {
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    /* =====================================================
+       CORS
+    ===================================================== */
+
+    res.setHeader(
+        "Access-Control-Allow-Origin",
+        "*"
+    );
+
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "POST, OPTIONS"
+    );
+
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type"
+    );
+
+
+    /* =====================================================
+       OPTIONS
+    ===================================================== */
 
     if (req.method === "OPTIONS") {
-        return res.status(200).end();
+
+        return res
+            .status(200)
+            .end();
+
     }
 
+
+    /* =====================================================
+       ONLY POST
+    ===================================================== */
+
     if (req.method !== "POST") {
-        return res.status(405).json({
-            error: "Method not allowed"
-        });
+
+        return res
+            .status(405)
+            .json({
+                error: "Method not allowed"
+            });
+
     }
+
 
     try {
 
-        const body = req.body || {};
+        /* =====================================================
+           REQUEST BODY
+        ===================================================== */
+
+        const body =
+            req.body || {};
+
 
         const message =
-            String(body.message || "").trim();
+            String(
+                body.message || ""
+            ).trim();
+
 
         const image =
-    body.image || null;
+            body.image || null;
 
-const history =
-    Array.isArray(body.history)
-        ? body.history
-        : [];
+
+        /* =====================================================
+           CONVERSATION HISTORY
+        ===================================================== */
+
+        const rawHistory =
+            Array.isArray(body.history)
+                ? body.history
+                : [];
+
+
+        /*
+         * Only allow normal user/assistant
+         * conversation messages.
+         *
+         * We do NOT allow the frontend
+         * to inject system messages.
+         */
+
+        const history =
+            rawHistory
+
+                .filter(function (item) {
+
+                    return (
+                        item &&
+                        (
+                            item.role === "user" ||
+                            item.role === "assistant"
+                        )
+                    );
+
+                })
+
+                .map(function (item) {
+
+                    return {
+
+                        role:
+                            item.role,
+
+                        content:
+                            String(
+                                item.content || ""
+                            ).trim()
+
+                    };
+
+                })
+
+                .filter(function (item) {
+
+                    return (
+                        item.content.length > 0
+                    );
+
+                })
+
+                /*
+                 * Keep the most recent
+                 * 30 messages.
+                 *
+                 * This prevents the request from
+                 * growing forever.
+                 */
+
+                .slice(-30);
+
+
+        /* =====================================================
+           VALIDATE REQUEST
+        ===================================================== */
 
         if (!message && !image) {
-            return res.status(400).json({
-                error: "Message or image is required"
-            });
+
+            return res
+                .status(400)
+                .json({
+
+                    error:
+                        "Message or image is required"
+
+                });
+
         }
+
+
+        /* =====================================================
+           GROQ API KEY
+        ===================================================== */
 
         const apiKey =
             process.env.GROQ_API_KEY;
+
 
         if (!apiKey) {
 
@@ -46,10 +170,15 @@ const history =
                 "❌ GROQ_API_KEY is missing"
             );
 
-            return res.status(500).json({
-                error:
-                    "Groq API key is not configured"
-            });
+            return res
+                .status(500)
+                .json({
+
+                    error:
+                        "Groq API key is not configured"
+
+                });
+
         }
 
 
@@ -62,7 +191,21 @@ You are AI Life Assistant.
 
 You are a helpful, intelligent and friendly AI assistant.
 
-Answer the user's actual question directly.
+Continue the conversation naturally using the conversation
+history provided to you.
+
+Treat previous user and assistant messages as conversation
+context.
+
+Answer the user's current message directly.
+
+Do not repeat previous answers unless it is useful.
+
+If the user asks a follow-up question, understand what they
+are referring to from the previous conversation.
+
+If the user changes the subject, naturally move to the new
+subject while still remembering the previous conversation.
 
 Never expose internal reasoning.
 
@@ -88,23 +231,32 @@ For simple questions, answer directly.
 
 For complex questions, organize the final answer clearly.
 
-When an image is provided:
+
+IMAGE INSTRUCTIONS:
+
+When an image is provided with the current message:
 
 - Actually inspect the image.
-- Describe only what you can see.
+- Use the image together with the conversation history.
+- Answer the user's specific question about the image.
+- Describe only what you can actually see.
 - Do not invent details.
-- Answer the user's specific question.
 - If the user asks what is in the image, describe it clearly.
 - If the user asks about text in the image, read the visible text.
+- If the user asks a follow-up question about the image, use the
+  image and the previous conversation together.
 - If something is unclear, say so.
+- If the current question is unrelated to the image, answer the
+  question normally and do not force the image into the answer.
 - Do not mention technical limitations unless there is a real error.
 
-Do not use Markdown tables unless the user specifically asks for one.
+Do not use Markdown tables unless the user specifically asks
+for one.
 `;
 
 
         /* =====================================================
-           USER CONTENT
+           CURRENT USER CONTENT
         ===================================================== */
 
         let userContent;
@@ -116,16 +268,23 @@ Do not use Markdown tables unless the user specifically asks for one.
 
                 {
                     type: "text",
+
                     text:
                         message ||
                         "Describe this image clearly."
+
                 },
 
                 {
                     type: "image_url",
+
                     image_url: {
-                        url: image
+
+                        url:
+                            image
+
                     }
+
                 }
 
             ];
@@ -139,7 +298,7 @@ Do not use Markdown tables unless the user specifically asks for one.
 
 
         /* =====================================================
-           MODEL
+           SELECT MODEL
         ===================================================== */
 
         const model =
@@ -154,38 +313,91 @@ Do not use Markdown tables unless the user specifically asks for one.
                 : "💬 GROQ TEXT REQUEST"
         );
 
+
         console.log(
             "🤖 Model:",
             model
         );
 
 
+        console.log(
+            "🧠 Conversation history messages:",
+            history.length
+        );
+
+
+        console.log(
+            "🖼️ Current image:",
+            image
+                ? "YES"
+                : "NO"
+        );
+
+
         /* =====================================================
-           GROQ REQUEST
+           BUILD CONVERSATION MESSAGES
+        ===================================================== */
+
+        const messages = [
+
+            {
+                role: "system",
+
+                content:
+                    systemPrompt
+
+            },
+
+            /*
+             * Previous conversation.
+             *
+             * These are the messages that allow
+             * the AI to understand things like:
+             *
+             * User: Who is in the image?
+             * AI: A man...
+             * User: What is he wearing?
+             *
+             * The second question can now use
+             * the conversation history.
+             */
+
+            ...history,
+
+            /*
+             * CURRENT USER MESSAGE
+             */
+
+            {
+                role: "user",
+
+                content:
+                    userContent
+
+            }
+
+        ];
+
+
+        /* =====================================================
+           GROQ REQUEST BODY
         ===================================================== */
 
         const requestBody = {
 
-            model: model,
+            model:
+                model,
 
-            messages: [
-
-                {
-                    role: "system",
-                    content: systemPrompt
-                },
-
-                {
-                    role: "user",
-                    content: userContent
-                }
-
-            ],
+            messages:
+                messages,
 
             temperature:
-                image ? 0.7 : 0.5,
+                image
+                    ? 0.7
+                    : 0.5,
 
-            max_completion_tokens: 800
+            max_completion_tokens:
+                800
 
         };
 
@@ -194,20 +406,29 @@ Do not use Markdown tables unless the user specifically asks for one.
            REASONING SETTINGS
         ===================================================== */
 
-        if (model === "openai/gpt-oss-20b") {
+        if (
+            model ===
+            "openai/gpt-oss-20b"
+        ) {
 
-            requestBody.include_reasoning = false;
+            requestBody.include_reasoning =
+                false;
 
         }
 
 
-        if (model === "qwen/qwen3.6-27b") {
+        if (
+            model ===
+            "qwen/qwen3.6-27b"
+        ) {
 
-            // Keep vision responses in normal
-            // non-thinking mode.
+            /*
+             * Keep reasoning hidden from
+             * the user.
+             */
 
-            requestBody.reasoning_effort =
-                "none";
+            requestBody.reasoning_format =
+                "hidden";
 
         }
 
@@ -216,27 +437,44 @@ Do not use Markdown tables unless the user specifically asks for one.
            CALL GROQ
         ===================================================== */
 
+        console.log(
+            "🚀 Sending request to Groq..."
+        );
+
+
         const response =
             await fetch(
+
                 "https://api.groq.com/openai/v1/chat/completions",
+
                 {
-                    method: "POST",
+
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json",
 
                         "Authorization":
                             `Bearer ${apiKey}`
+
                     },
 
                     body:
                         JSON.stringify(
                             requestBody
                         )
+
                 }
+
             );
 
+
+        /* =====================================================
+           READ GROQ RESPONSE
+        ===================================================== */
 
         const data =
             await response.json();
@@ -259,15 +497,18 @@ Do not use Markdown tables unless the user specifically asks for one.
                 data
             );
 
-            return res.status(
-                response.status
-            ).json({
 
-                error:
-                    data?.error?.message ||
-                    "Groq AI request failed"
+            return res
+                .status(
+                    response.status
+                )
+                .json({
 
-            });
+                    error:
+                        data?.error?.message ||
+                        "Groq AI request failed"
+
+                });
 
         }
 
@@ -277,23 +518,30 @@ Do not use Markdown tables unless the user specifically asks for one.
         ===================================================== */
 
         let reply =
-            data?.choices?.[0]?.message?.content;
+            data
+                ?.choices
+                ?.[0]
+                ?.message
+                ?.content;
 
 
-        /*
-         * Extra safety:
-         * If Groq somehow returns reasoning
-         * inside content, remove it.
-         */
+        /* =====================================================
+           CLEAN REASONING TAGS
+        ===================================================== */
 
-        if (typeof reply === "string") {
+        if (
+            typeof reply ===
+            "string"
+        ) {
 
             reply =
                 reply
+
                     .replace(
                         /<think>[\s\S]*?<\/think>/gi,
                         ""
                     )
+
                     .trim();
 
         }
@@ -309,8 +557,10 @@ Do not use Markdown tables unless the user specifically asks for one.
                 "❌ Groq returned no final answer."
             );
 
+
             console.error(
                 "Groq response:",
+
                 JSON.stringify(
                     data,
                     null,
@@ -318,48 +568,63 @@ Do not use Markdown tables unless the user specifically asks for one.
                 )
             );
 
-            return res.status(500).json({
 
-                error:
-                    "Groq returned no AI response"
+            return res
+                .status(500)
+                .json({
 
-            });
+                    error:
+                        "Groq returned no AI response"
+
+                });
 
         }
-
-
-        console.log(
-            "✅ Groq final answer returned"
-        );
 
 
         /* =====================================================
            SUCCESS
         ===================================================== */
 
-        return res.status(200).json({
+        console.log(
+            "✅ Groq final answer returned"
+        );
 
-            success: true,
 
-            reply:
-                String(reply).trim()
+        return res
+            .status(200)
+            .json({
 
-        });
+                success:
+                    true,
+
+                reply:
+                    String(
+                        reply
+                    ).trim()
+
+            });
 
 
     } catch (error) {
+
+        /* =====================================================
+           BACKEND ERROR
+        ===================================================== */
 
         console.error(
             "❌ BACKEND ERROR:",
             error
         );
 
-        return res.status(500).json({
 
-            error:
-                "Internal server error"
+        return res
+            .status(500)
+            .json({
 
-        });
+                error:
+                    "Internal server error"
+
+            });
 
     }
 
