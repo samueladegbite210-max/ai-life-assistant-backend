@@ -24,7 +24,12 @@ module.exports = async function handler(req, res) {
             String(body.message || "").trim();
 
         const image =
-            body.image || null;
+    body.image || null;
+
+const history =
+    Array.isArray(body.history)
+        ? body.history
+        : [];
 
         if (!message && !image) {
             return res.status(400).json({
