@@ -80,14 +80,6 @@ module.exports = async function handler(req, res) {
                 : [];
 
 
-        /*
-         * Only allow normal user/assistant
-         * conversation messages.
-         *
-         * We do NOT allow the frontend
-         * to inject system messages.
-         */
-
         const history =
             rawHistory
 
@@ -126,14 +118,6 @@ module.exports = async function handler(req, res) {
                     );
 
                 })
-
-                /*
-                 * Keep the most recent
-                 * 30 messages.
-                 *
-                 * This prevents the request from
-                 * growing forever.
-                 */
 
                 .slice(-30);
 
@@ -289,7 +273,9 @@ for one.
 
             ];
 
-        } else {
+        }
+
+        else {
 
             userContent =
                 message;
@@ -298,13 +284,199 @@ for one.
 
 
         /* =====================================================
+           MODEL SETTINGS
+        ===================================================== */
+
+        const TEXT_MODEL =
+            "openai/gpt-oss-20b";
+
+
+        /*
+         * Groq currently documents both of these
+         * as vision-capable models.
+         *
+         * We try 3.6 first, then 3.8 if the
+         * account/project rejects 3.6.
+         */
+
+        const VISION_MODELS = [
+
+            "qwen/qwen3.6-27b",
+
+            "qwen/qwen3.8-27b"
+
+        ];
+
+
+        /* =====================================================
+           CHECK WHETHER A MODEL IS AVAILABLE
+        ===================================================== */
+
+        async function getAvailableModels() {
+
+            try {
+
+                const modelsResponse =
+                    await fetch(
+                        "https://api.groq.com/openai/v1/models",
+                        {
+                            method: "GET",
+
+                            headers: {
+
+                                "Authorization":
+                                    `Bearer ${apiKey}`,
+
+                                "Content-Type":
+                                    "application/json"
+
+                            }
+                        }
+                    );
+
+
+                if (!modelsResponse.ok) {
+
+                    console.warn(
+                        "⚠️ Could not retrieve Groq model list:",
+                        modelsResponse.status
+                    );
+
+                    return [];
+
+                }
+
+
+                const modelsData =
+                    await modelsResponse.json();
+
+
+                if (
+                    !modelsData ||
+                    !Array.isArray(
+                        modelsData.data
+                    )
+                ) {
+
+                    return [];
+
+                }
+
+
+                return modelsData.data
+                    .map(function (model) {
+
+                        return model &&
+                            model.id
+                            ? String(model.id)
+                            : "";
+
+                    })
+                    .filter(Boolean);
+
+            }
+
+            catch (error) {
+
+                console.warn(
+                    "⚠️ Groq model discovery failed:",
+                    error
+                );
+
+                return [];
+
+            }
+
+        }
+
+
+        /* =====================================================
+           SELECT VISION MODEL
+        ===================================================== */
+
+        async function selectVisionModel() {
+
+            const availableModels =
+                await getAvailableModels();
+
+
+            console.log(
+                "📋 Groq models available:",
+                availableModels.length
+            );
+
+
+            /*
+             * If Groq returned the available model
+             * list, use the first vision model
+             * that is actually present.
+             */
+
+            if (
+                availableModels.length > 0
+            ) {
+
+                for (
+                    let i = 0;
+                    i < VISION_MODELS.length;
+                    i++
+                ) {
+
+                    if (
+                        availableModels.includes(
+                            VISION_MODELS[i]
+                        )
+                    ) {
+
+                        console.log(
+                            "✅ Vision model available:",
+                            VISION_MODELS[i]
+                        );
+
+                        return VISION_MODELS[i];
+
+                    }
+
+                }
+
+
+                console.warn(
+                    "⚠️ No preferred vision model appeared in the Groq model list."
+                );
+
+            }
+
+
+            /*
+             * If model discovery fails, still try
+             * the primary documented vision model.
+             */
+
+            return VISION_MODELS[0];
+
+        }
+
+
+        /* =====================================================
            SELECT MODEL
         ===================================================== */
 
-        const model =
-            image
-                ? "qwen/qwen3.6-27b"
-                : "openai/gpt-oss-20b";
+        let model;
+
+
+        if (image) {
+
+            model =
+                await selectVisionModel();
+
+        }
+
+        else {
+
+            model =
+                TEXT_MODEL;
+
+        }
 
 
         console.log(
@@ -315,7 +487,7 @@ for one.
 
 
         console.log(
-            "🤖 Model:",
+            "🤖 Initial model:",
             model
         );
 
@@ -348,25 +520,7 @@ for one.
 
             },
 
-            /*
-             * Previous conversation.
-             *
-             * These are the messages that allow
-             * the AI to understand things like:
-             *
-             * User: Who is in the image?
-             * AI: A man...
-             * User: What is he wearing?
-             *
-             * The second question can now use
-             * the conversation history.
-             */
-
             ...history,
-
-            /*
-             * CURRENT USER MESSAGE
-             */
 
             {
                 role: "user",
@@ -380,70 +534,72 @@ for one.
 
 
         /* =====================================================
-           GROQ REQUEST BODY
+           GROQ REQUEST FUNCTION
         ===================================================== */
 
-        const requestBody = {
-
-            model:
-                model,
-
-            messages:
-                messages,
-
-            temperature:
-                image
-                    ? 0.7
-                    : 0.5,
-
-            max_completion_tokens:
-                800
-
-        };
-
-
-        /* =====================================================
-           REASONING SETTINGS
-        ===================================================== */
-
-        if (
-            model ===
-            "openai/gpt-oss-20b"
+        async function callGroq(
+            selectedModel
         ) {
 
-            requestBody.include_reasoning =
-                false;
+            const requestBody = {
 
-        }
+                model:
+                    selectedModel,
 
+                messages:
+                    messages,
 
-        if (
-            model ===
-            "qwen/qwen3.6-27b"
-        ) {
+                temperature:
+                    image
+                        ? 0.7
+                        : 0.5,
 
-            /*
-             * Keep reasoning hidden from
-             * the user.
-             */
+                max_completion_tokens:
+                    800
 
-            requestBody.reasoning_format =
-                "hidden";
-
-        }
+            };
 
 
-        /* =====================================================
-           CALL GROQ
-        ===================================================== */
+            /* ================================================
+               REASONING SETTINGS
+            ================================================= */
 
-        console.log(
-            "🚀 Sending request to Groq..."
-        );
+            if (
+                selectedModel ===
+                "openai/gpt-oss-20b"
+            ) {
+
+                requestBody.include_reasoning =
+                    false;
+
+            }
 
 
-        const response =
-            await fetch(
+            if (
+                selectedModel ===
+                    "qwen/qwen3.6-27b" ||
+                selectedModel ===
+                    "qwen/qwen3.8-27b"
+            ) {
+
+                requestBody.reasoning_format =
+                    "hidden";
+
+            }
+
+
+            console.log(
+                "🚀 Sending request to Groq..."
+            );
+
+
+            console.log(
+                "🤖 Using model:",
+                selectedModel
+            );
+
+
+            return await fetch(
 
                 "https://api.groq.com/openai/v1/chat/completions",
 
@@ -471,12 +627,18 @@ for one.
 
             );
 
+        }
+
 
         /* =====================================================
-           READ GROQ RESPONSE
+           FIRST GROQ REQUEST
         ===================================================== */
 
-        const data =
+        let response =
+            await callGroq(model);
+
+
+        let data =
             await response.json();
 
 
@@ -484,6 +646,57 @@ for one.
             "🌐 Groq status:",
             response.status
         );
+
+
+        /* =====================================================
+           AUTOMATIC VISION FALLBACK
+        ===================================================== */
+
+        if (
+            image &&
+            response.status === 404 &&
+            model === "qwen/qwen3.6-27b"
+        ) {
+
+            console.warn(
+                "⚠️ Qwen 3.6 was rejected. Trying Qwen 3.8..."
+            );
+
+
+            const fallbackModel =
+                "qwen/qwen3.8-27b";
+
+
+            response =
+                await callGroq(
+                    fallbackModel
+                );
+
+
+            data =
+                await response.json();
+
+
+            console.log(
+                "🌐 Vision fallback status:",
+                response.status
+            );
+
+
+            if (response.ok) {
+
+                model =
+                    fallbackModel;
+
+
+                console.log(
+                    "✅ Vision fallback succeeded:",
+                    model
+                );
+
+            }
+
+        }
 
 
         /* =====================================================
@@ -498,6 +711,15 @@ for one.
             );
 
 
+            const groqMessage =
+                data?.error?.message ||
+                "Groq AI request failed";
+
+
+            /*
+             * Give the frontend a useful error.
+             */
+
             return res
                 .status(
                     response.status
@@ -505,8 +727,13 @@ for one.
                 .json({
 
                     error:
-                        data?.error?.message ||
-                        "Groq AI request failed"
+                        groqMessage,
+
+                    model:
+                        model,
+
+                    vision:
+                        Boolean(image)
 
                 });
 
@@ -590,6 +817,12 @@ for one.
         );
 
 
+        console.log(
+            "🤖 Final model used:",
+            model
+        );
+
+
         return res
             .status(200)
             .json({
@@ -600,12 +833,17 @@ for one.
                 reply:
                     String(
                         reply
-                    ).trim()
+                    ).trim(),
+
+                model:
+                    model
 
             });
 
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
         /* =====================================================
            BACKEND ERROR
