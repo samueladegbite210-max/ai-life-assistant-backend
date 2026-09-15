@@ -564,28 +564,13 @@ for one.
                REASONING SETTINGS
             ================================================= */
 
-            if (
-                selectedModel ===
-                "openai/gpt-oss-20b"
-            ) {
+            if (model === "openai/gpt-oss-20b") {
+    requestBody.include_reasoning = false;
+}
 
-                requestBody.include_reasoning =
-                    false;
-
-            }
-
-
-            if (
-                selectedModel ===
-                    "qwen/qwen3.6-27b" ||
-                selectedModel ===
-                    "qwen/qwen3.8-27b"
-            ) {
-
-                requestBody.reasoning_format =
-                    "hidden";
-
-            }
+if (model === "qwen/qwen3.6-27b") {
+    requestBody.reasoning_effort = "none";
+}
 
 
             console.log(
