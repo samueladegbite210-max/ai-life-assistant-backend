@@ -2,9 +2,9 @@
 
 export default async function handler(req, res) {
 
-    // -----------------------------
+    // --------------------------------
     // CORS
-    // -----------------------------
+    // --------------------------------
 
     res.setHeader(
         "Access-Control-Allow-Origin",
@@ -22,14 +22,23 @@ export default async function handler(req, res) {
     );
 
 
+    // --------------------------------
+    // OPTIONS
+    // --------------------------------
+
     if (req.method === "OPTIONS") {
         return res.status(200).end();
     }
 
 
+    // --------------------------------
+    // POST ONLY
+    // --------------------------------
+
     if (req.method !== "POST") {
 
         return res.status(405).json({
+            success: false,
             error: "Method not allowed"
         });
 
@@ -38,31 +47,43 @@ export default async function handler(req, res) {
 
     try {
 
-        const {
-            prompt,
-            image
-        } = req.body || {};
+        const body =
+            req.body || {};
 
 
-        // -----------------------------
-        // Validate prompt
-        // -----------------------------
+        const prompt =
+            typeof body.prompt === "string"
+                ? body.prompt.trim()
+                : "";
 
-        if (
-            !prompt ||
-            typeof prompt !== "string"
-        ) {
+
+        const image =
+            typeof body.image === "string"
+                ? body.image.trim()
+                : "";
+
+
+        // --------------------------------
+        // VALIDATE PROMPT
+        // --------------------------------
+
+        if (!prompt) {
 
             return res.status(400).json({
-                error: "Image prompt is required"
+
+                success: false,
+
+                error:
+                    "Image prompt is required."
+
             });
 
         }
 
 
-        // -----------------------------
-        // Hugging Face token
-        // -----------------------------
+        // --------------------------------
+        // HUGGING FACE TOKEN
+        // --------------------------------
 
         const token =
             process.env.HUGGINGFACE_API_KEY;
@@ -71,36 +92,35 @@ export default async function handler(req, res) {
         if (!token) {
 
             return res.status(500).json({
+
+                success: false,
+
                 error:
                     "HUGGINGFACE_API_KEY is not configured in Vercel."
+
             });
 
         }
 
 
-        // -----------------------------
-        // Choose operation
-        // -----------------------------
+        // --------------------------------
+        // DETERMINE OPERATION
+        // --------------------------------
 
         const isEdit =
             Boolean(image);
 
 
-        /*
-         * Text-to-image:
-         *
-         * Qwen Image
-         *
-         * Image-to-image:
-         *
-         * FLUX Kontext
-         */
+        // --------------------------------
+        // MODELS
+        // --------------------------------
 
-        const model = isEdit
+        const model =
+            isEdit
 
-            ? "black-forest-labs/FLUX.1-Kontext-dev"
+                ? "Qwen/Qwen-Image-Edit"
 
-            : "Qwen/Qwen-Image";
+                : "Qwen/Qwen-Image";
 
 
         const endpoint =
@@ -108,82 +128,100 @@ export default async function handler(req, res) {
             + model;
 
 
-        // -----------------------------
-        // Build request
-        // -----------------------------
-
-        let body;
-
-
-        if (isEdit) {
-
-            /*
-             * image should be a data URL:
-             *
-             * data:image/jpeg;base64,...
-             */
-
-            const base64Image =
-                image.includes(",")
-                    ? image.split(",")[1]
-                    : image;
-
-
-            const binary =
-                Buffer.from(
-                    base64Image,
-                    "base64"
-                );
-
-
-            body = binary;
-
-        } else {
-
-            body = JSON.stringify({
-                inputs: prompt
-            });
-
-        }
-
+        // --------------------------------
+        // HEADERS
+        // --------------------------------
 
         const headers = {
 
             Authorization:
-                `Bearer ${token}`
+                `Bearer ${token}`,
+
+            "Content-Type":
+                "application/json"
 
         };
 
 
+        // --------------------------------
+        // BUILD PAYLOAD
+        // --------------------------------
+
+        let payload;
+
+
         if (!isEdit) {
 
-            headers[
-                "Content-Type"
-            ] = "application/json";
+            /*
+             * TEXT → IMAGE
+             */
+
+            payload = {
+
+                inputs:
+                    prompt
+
+            };
 
         } else {
 
-            headers[
-                "Content-Type"
-            ] = "application/octet-stream";
+            /*
+             * IMAGE → IMAGE
+             *
+             * Remove data URL prefix if present.
+             */
+
+            const base64Image =
+                image.includes(",")
+
+                    ? image.split(",")[1]
+
+                    : image;
+
+
+            payload = {
+
+                inputs:
+                    base64Image,
+
+                parameters: {
+
+                    prompt:
+                        prompt
+
+                }
+
+            };
 
         }
 
 
-        // -----------------------------
-        // Call Hugging Face
-        // -----------------------------
+        // --------------------------------
+        // CALL HUGGING FACE
+        // --------------------------------
 
         const response =
             await fetch(
                 endpoint,
                 {
                     method: "POST",
-                    headers,
-                    body
+
+                    headers:
+
+                        headers,
+
+                    body:
+                        JSON.stringify(
+                            payload
+                        )
+
                 }
             );
 
+
+        // --------------------------------
+        // HANDLE ERROR
+        // --------------------------------
 
         if (!response.ok) {
 
@@ -192,7 +230,7 @@ export default async function handler(req, res) {
 
 
             console.error(
-                "Hugging Face error:",
+                "Hugging Face image error:",
                 response.status,
                 errorText
             );
@@ -202,8 +240,13 @@ export default async function handler(req, res) {
                 response.status
             ).json({
 
+                success: false,
+
                 error:
                     "Image engine request failed.",
+
+                status:
+                    response.status,
 
                 details:
                     errorText
@@ -213,10 +256,9 @@ export default async function handler(req, res) {
         }
 
 
-        // -----------------------------
-        // Convert generated image
-        // to base64
-        // -----------------------------
+        // --------------------------------
+        // READ IMAGE RESULT
+        // --------------------------------
 
         const buffer =
             Buffer.from(
@@ -231,31 +273,43 @@ export default async function handler(req, res) {
             "image/png";
 
 
+        // --------------------------------
+        // CONVERT TO DATA URL
+        // --------------------------------
+
         const imageData =
+
             `data:${contentType};base64,`
             +
-            buffer.toString("base64");
+            buffer.toString(
+                "base64"
+            );
 
 
-        // -----------------------------
-        // Return image
-        // -----------------------------
+        // --------------------------------
+        // SUCCESS
+        // --------------------------------
 
         return res.status(200).json({
 
             success: true,
 
-            type: "image",
+            type:
+                "image",
 
             operation:
+
                 isEdit
+
                     ? "edit"
+
                     : "generate",
 
             image:
                 imageData,
 
-            prompt
+            prompt:
+                prompt
 
         });
 
@@ -269,6 +323,8 @@ export default async function handler(req, res) {
 
 
         return res.status(500).json({
+
+            success: false,
 
             error:
                 "Image engine failed.",
