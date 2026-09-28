@@ -1,6 +1,26 @@
 import { InferenceClient } from "@huggingface/inference";
 
 export default async function handler(req, res) {
+
+    // CORS
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "POST, OPTIONS"
+    );
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type"
+    );
+
+    // Handle browser preflight request
+    if (req.method === "OPTIONS") {
+        return res.status(200).json({
+            success: true
+        });
+    }
+
+    // Only POST is allowed after preflight
     if (req.method !== "POST") {
         return res.status(405).json({
             success: false,
@@ -9,12 +29,15 @@ export default async function handler(req, res) {
     }
 
     try {
-        const token = process.env.HUGGINGFACE_API_KEY;
+
+        const token =
+            process.env.HUGGINGFACE_API_KEY;
 
         if (!token) {
             return res.status(500).json({
                 success: false,
-                error: "HUGGINGFACE_API_KEY is not configured in Vercel."
+                error:
+                    "HUGGINGFACE_API_KEY is not configured in Vercel."
             });
         }
 
@@ -23,42 +46,68 @@ export default async function handler(req, res) {
             image = null
         } = req.body || {};
 
-        if (!prompt || typeof prompt !== "string") {
+        if (
+            !prompt ||
+            typeof prompt !== "string"
+        ) {
             return res.status(400).json({
                 success: false,
                 error: "Image prompt is required."
             });
         }
 
-        const client = new InferenceClient(token);
+        const client =
+            new InferenceClient(token);
 
         let imageBlob;
         let operation;
 
+        // ==============================
+        // IMAGE EDIT
+        // ==============================
+
         if (image) {
 
-            console.log("🎨 IMAGE EDIT");
-            console.log("Model: Qwen/Qwen-Image-Edit");
+            console.log(
+                "🎨 IMAGE EDIT REQUEST"
+            );
 
-            imageBlob = await client.imageToImage({
-                provider: "fal-ai",
-                model: "Qwen/Qwen-Image-Edit",
-                inputs: image,
-                prompt: prompt.trim()
-            });
+            console.log(
+                "Model: Qwen/Qwen-Image-Edit"
+            );
+
+            imageBlob =
+                await client.imageToImage({
+                    provider: "fal-ai",
+                    model: "Qwen/Qwen-Image-Edit",
+                    inputs: image,
+                    prompt: prompt.trim()
+                });
 
             operation = "edit";
 
-        } else {
+        }
 
-            console.log("🎨 IMAGE GENERATION");
-            console.log("Model: Qwen/Qwen-Image");
+        // ==============================
+        // IMAGE GENERATION
+        // ==============================
 
-            imageBlob = await client.textToImage({
-                provider: "fal-ai",
-                model: "Qwen/Qwen-Image",
-                inputs: prompt.trim()
-            });
+        else {
+
+            console.log(
+                "🎨 IMAGE GENERATION REQUEST"
+            );
+
+            console.log(
+                "Model: Qwen/Qwen-Image"
+            );
+
+            imageBlob =
+                await client.textToImage({
+                    provider: "fal-ai",
+                    model: "Qwen/Qwen-Image",
+                    inputs: prompt.trim()
+                });
 
             operation = "generate";
         }
