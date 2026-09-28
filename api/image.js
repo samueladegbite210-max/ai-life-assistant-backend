@@ -1,3 +1,5 @@
+import { InferenceClient } from "@huggingface/inference";
+
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({
@@ -7,160 +9,90 @@ export default async function handler(req, res) {
     }
 
     try {
-        const apiKey = process.env.HUGGINGFACE_API_KEY;
+        const token = process.env.HUGGINGFACE_API_KEY;
 
-        if (!apiKey) {
+        if (!token) {
             return res.status(500).json({
                 success: false,
                 error: "HUGGINGFACE_API_KEY is not configured in Vercel."
             });
         }
 
-        const { prompt, image } = req.body || {};
+        const {
+            prompt,
+            image = null
+        } = req.body || {};
 
-        if (!prompt) {
+        if (!prompt || typeof prompt !== "string") {
             return res.status(400).json({
                 success: false,
                 error: "Image prompt is required."
             });
         }
 
-        const isEdit = Boolean(image);
+        const client = new InferenceClient(token);
 
-        const model = isEdit
-            ? "Qwen/Qwen-Image-Edit"
-            : "Qwen/Qwen-Image";
+        let imageBlob;
+        let operation;
 
-        const url =
-            `https://router.huggingface.co/hf-inference/models/${model}`;
+        if (image) {
 
-        const body = isEdit
-            ? {
+            console.log("🎨 IMAGE EDIT");
+            console.log("Model: Qwen/Qwen-Image-Edit");
+
+            imageBlob = await client.imageToImage({
+                provider: "fal-ai",
+                model: "Qwen/Qwen-Image-Edit",
                 inputs: image,
-                parameters: {
-                    prompt: prompt.trim()
-                }
-            }
-            : {
+                prompt: prompt.trim()
+            });
+
+            operation = "edit";
+
+        } else {
+
+            console.log("🎨 IMAGE GENERATION");
+            console.log("Model: Qwen/Qwen-Image");
+
+            imageBlob = await client.textToImage({
+                provider: "fal-ai",
+                model: "Qwen/Qwen-Image",
                 inputs: prompt.trim()
-            };
+            });
 
-        console.log("================================");
-        console.log("🎨 IMAGE ENGINE");
-        console.log("Model:", model);
-        console.log("Edit:", isEdit);
-        console.log("Prompt:", prompt);
-        console.log("================================");
+            operation = "generate";
+        }
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(body)
-        });
+        if (!imageBlob) {
+            throw new Error(
+                "Hugging Face returned no image."
+            );
+        }
 
-        const contentType =
-            response.headers.get("content-type") || "";
-
-        const responseBuffer =
-            Buffer.from(await response.arrayBuffer());
-
-        const responseText =
-            responseBuffer.toString("utf8");
-
-        console.log(
-            "HF STATUS:",
-            response.status
-        );
-
-        console.log(
-            "HF CONTENT TYPE:",
-            contentType
-        );
-
-        if (!response.ok) {
-
-            console.error(
-                "HF RESPONSE:",
-                responseText
+        const buffer =
+            Buffer.from(
+                await imageBlob.arrayBuffer()
             );
 
-            return res.status(502).json({
-                success: false,
-                error: "Hugging Face request failed.",
-                status: response.status,
-                details: responseText
-            });
-        }
-
-        // Hugging Face may return a JSON error/loading message.
-        if (
-            contentType.includes("application/json") ||
-            contentType.includes("text/plain")
-        ) {
-
-            console.error(
-                "HF NON-IMAGE RESPONSE:",
-                responseText
+        if (!buffer.length) {
+            throw new Error(
+                "Hugging Face returned an empty image."
             );
-
-            let details = responseText;
-
-            try {
-                details =
-                    JSON.parse(responseText);
-            } catch (_) {
-                // Keep text response
-            }
-
-            return res.status(502).json({
-                success: false,
-                error:
-                    "Hugging Face did not return an image.",
-                details
-            });
         }
-
-        if (
-            !contentType.startsWith("image/")
-        ) {
-
-            return res.status(502).json({
-                success: false,
-                error:
-                    "Hugging Face returned an unsupported response.",
-                contentType
-            });
-        }
-
-        if (!responseBuffer.length) {
-            return res.status(502).json({
-                success: false,
-                error:
-                    "Hugging Face returned an empty image."
-            });
-        }
-
-        const base64 =
-            responseBuffer.toString("base64");
 
         const imageData =
-            `data:${contentType};base64,${base64}`;
+            `data:image/png;base64,${buffer.toString("base64")}`;
 
         console.log(
-            "✅ IMAGE RECEIVED:",
-            responseBuffer.length,
+            "✅ Image received:",
+            buffer.length,
             "bytes"
         );
 
         return res.status(200).json({
             success: true,
             type: "image",
-            operation: isEdit
-                ? "edit"
-                : "generate",
+            operation,
             image: imageData,
             prompt: prompt.trim()
         });
@@ -168,14 +100,14 @@ export default async function handler(req, res) {
     } catch (error) {
 
         console.error(
-            "🔥 IMAGE ENGINE ERROR:",
+            "❌ IMAGE ENGINE ERROR:",
             error
         );
 
         return res.status(500).json({
             success: false,
             error:
-                error.message ||
+                error?.message ||
                 "Image engine request failed."
         });
     }
