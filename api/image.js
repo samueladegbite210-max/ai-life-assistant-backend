@@ -16,12 +16,9 @@ export default async function handler(req, res) {
             });
         }
 
-        const {
-            prompt,
-            image = null
-        } = req.body || {};
+        const { prompt, image } = req.body || {};
 
-        if (!prompt || typeof prompt !== "string") {
+        if (!prompt) {
             return res.status(400).json({
                 success: false,
                 error: "Image prompt is required."
@@ -34,110 +31,129 @@ export default async function handler(req, res) {
             ? "Qwen/Qwen-Image-Edit"
             : "Qwen/Qwen-Image";
 
-        const endpoint =
+        const url =
             `https://router.huggingface.co/hf-inference/models/${model}`;
 
-        let requestBody;
-
-        if (isEdit) {
-            requestBody = {
+        const body = isEdit
+            ? {
                 inputs: image,
                 parameters: {
                     prompt: prompt.trim()
                 }
-            };
-        } else {
-            requestBody = {
+            }
+            : {
                 inputs: prompt.trim()
             };
-        }
 
-        console.log("🎨 Image request");
+        console.log("================================");
+        console.log("🎨 IMAGE ENGINE");
         console.log("Model:", model);
         console.log("Edit:", isEdit);
         console.log("Prompt:", prompt);
+        console.log("================================");
 
-        const response = await fetch(endpoint, {
+        const response = await fetch(url, {
             method: "POST",
-
             headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
             },
-
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(body)
         });
 
         const contentType =
             response.headers.get("content-type") || "";
 
+        const responseBuffer =
+            Buffer.from(await response.arrayBuffer());
+
+        const responseText =
+            responseBuffer.toString("utf8");
+
+        console.log(
+            "HF STATUS:",
+            response.status
+        );
+
+        console.log(
+            "HF CONTENT TYPE:",
+            contentType
+        );
+
         if (!response.ok) {
 
-            const errorText =
-                await response.text();
-
             console.error(
-                "❌ Hugging Face error:",
-                response.status,
-                errorText
+                "HF RESPONSE:",
+                responseText
             );
 
             return res.status(502).json({
                 success: false,
-                error: "Hugging Face image request failed.",
+                error: "Hugging Face request failed.",
                 status: response.status,
-                details: errorText
+                details: responseText
             });
         }
 
-        let imageBuffer;
+        // Hugging Face may return a JSON error/loading message.
+        if (
+            contentType.includes("application/json") ||
+            contentType.includes("text/plain")
+        ) {
 
-        if (contentType.includes("application/json")) {
-
-            const data =
-                await response.json();
-
-            console.log(
-                "HF JSON response:",
-                data
+            console.error(
+                "HF NON-IMAGE RESPONSE:",
+                responseText
             );
 
-            if (data.error) {
-                return res.status(502).json({
-                    success: false,
-                    error: data.error
-                });
+            let details = responseText;
+
+            try {
+                details =
+                    JSON.parse(responseText);
+            } catch (_) {
+                // Keep text response
             }
 
             return res.status(502).json({
                 success: false,
-                error: "Hugging Face returned JSON instead of an image.",
-                details: data
+                error:
+                    "Hugging Face did not return an image.",
+                details
             });
         }
 
-        imageBuffer =
-            Buffer.from(
-                await response.arrayBuffer()
-            );
+        if (
+            !contentType.startsWith("image/")
+        ) {
 
-        if (!imageBuffer.length) {
             return res.status(502).json({
                 success: false,
-                error: "Hugging Face returned an empty image."
+                error:
+                    "Hugging Face returned an unsupported response.",
+                contentType
             });
         }
 
-        const mimeType =
-            contentType.startsWith("image/")
-                ? contentType
-                : "image/png";
+        if (!responseBuffer.length) {
+            return res.status(502).json({
+                success: false,
+                error:
+                    "Hugging Face returned an empty image."
+            });
+        }
 
         const base64 =
-            imageBuffer.toString("base64");
+            responseBuffer.toString("base64");
 
         const imageData =
-            `data:${mimeType};base64,${base64}`;
+            `data:${contentType};base64,${base64}`;
+
+        console.log(
+            "✅ IMAGE RECEIVED:",
+            responseBuffer.length,
+            "bytes"
+        );
 
         return res.status(200).json({
             success: true,
@@ -152,16 +168,15 @@ export default async function handler(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Image engine exception:",
+            "🔥 IMAGE ENGINE ERROR:",
             error
         );
 
         return res.status(500).json({
             success: false,
-            error: "Image engine request failed.",
-            details:
+            error:
                 error.message ||
-                String(error)
+                "Image engine request failed."
         });
     }
 }
