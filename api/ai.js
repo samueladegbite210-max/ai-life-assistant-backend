@@ -7,6 +7,9 @@ const {
     TextRun
 } = require("docx");
 
+const PDFDocument =
+    require("pdfkit");
+
 module.exports = async function handler(req, res) {
 
     /* =====================================================
@@ -143,10 +146,11 @@ async function createFileResponse(fileRequest) {
 
     "text/csv",
 
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+    "application/pdf"
 
 ];
-
 
     if (
         !allowedMimeTypes.includes(
@@ -176,7 +180,9 @@ async function createFileResponse(fileRequest) {
 
     "csv",
 
-    "docx"
+    "docx",
+
+    "pdf"
 
 ];
 
@@ -253,6 +259,88 @@ if (
 
 
 /* ==========================================
+   PDF FILE
+========================================== */
+
+else if (
+    extension === "pdf"
+) {
+
+    const pdf =
+        new PDFDocument({
+
+            size: "A4",
+
+            margin: 50
+
+        });
+
+
+    const chunks = [];
+
+
+    pdf.on(
+        "data",
+        function (chunk) {
+
+            chunks.push(chunk);
+
+        }
+    );
+
+
+    const pdfFinished =
+        new Promise(function (resolve, reject) {
+
+            pdf.on(
+                "end",
+                resolve
+            );
+
+            pdf.on(
+                "error",
+                reject
+            );
+
+        });
+
+
+    pdf.fontSize(12);
+
+
+    const lines =
+        content
+            .split(/\r?\n/);
+
+
+    lines.forEach(
+        function (line) {
+
+            pdf.text(
+                line || " "
+            );
+
+            pdf.moveDown(0.4);
+
+        }
+    );
+
+
+    pdf.end();
+
+
+    await pdfFinished;
+
+
+    fileBuffer =
+        Buffer.concat(
+            chunks
+        );
+
+}
+
+
+/* ==========================================
    TEXT / MARKDOWN / CSV
 ========================================== */
 
@@ -265,8 +353,6 @@ else {
         );
 
 }
-
-
     return {
 
         filename:
