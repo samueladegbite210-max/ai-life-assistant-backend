@@ -69,6 +69,146 @@ module.exports = async function handler(req, res) {
         const image =
             body.image || null;
 
+        /* =====================================================
+   FILE CREATION REQUEST
+===================================================== */
+
+const createFile =
+    body.createFile || null;
+
+
+/* =====================================================
+   FILE CREATION HELPER
+===================================================== */
+
+function createFileResponse(fileRequest) {
+
+    if (
+        !fileRequest ||
+        typeof fileRequest !== "object"
+    ) {
+        return null;
+    }
+
+    const filename =
+        String(
+            fileRequest.filename || ""
+        ).trim();
+
+    const mimeType =
+        String(
+            fileRequest.mimeType ||
+            "text/plain"
+        ).trim();
+
+    const content =
+        typeof fileRequest.content === "string"
+            ? fileRequest.content
+            : String(
+                fileRequest.content || ""
+            );
+
+
+    if (!filename) {
+        throw new Error(
+            "A filename is required."
+        );
+    }
+
+
+    if (!content) {
+        throw new Error(
+            "File content is required."
+        );
+    }
+
+
+    /*
+     * Only allow safe text-based file types
+     * during the first stage.
+     */
+
+    const allowedMimeTypes = [
+
+        "text/plain",
+
+        "text/markdown",
+
+        "text/csv"
+
+    ];
+
+
+    if (
+        !allowedMimeTypes.includes(
+            mimeType
+        )
+    ) {
+
+        throw new Error(
+            "This file type is not supported yet."
+        );
+
+    }
+
+
+    const extension =
+        filename
+            .split(".")
+            .pop()
+            .toLowerCase();
+
+
+    const allowedExtensions = [
+
+        "txt",
+
+        "md",
+
+        "csv"
+
+    ];
+
+
+    if (
+        !allowedExtensions.includes(
+            extension
+        )
+    ) {
+
+        throw new Error(
+            "Only TXT, MD and CSV files are supported at this stage."
+        );
+
+    }
+
+
+    const fileBuffer =
+        Buffer.from(
+            content,
+            "utf8"
+        );
+
+
+    return {
+
+        filename:
+            filename,
+
+        mimeType:
+            mimeType,
+
+        size:
+            fileBuffer.length,
+
+        data:
+            fileBuffer.toString(
+                "base64"
+            )
+
+    };
+
+}
 
         /* =====================================================
            CONVERSATION HISTORY
@@ -126,20 +266,82 @@ module.exports = async function handler(req, res) {
            VALIDATE REQUEST
         ===================================================== */
 
-        if (!message && !image) {
+        if (
+    !message &&
+    !image &&
+    !createFile
+) {
 
-            return res
-                .status(400)
-                .json({
+    return res
+        .status(400)
+        .json({
 
-                    error:
-                        "Message or image is required"
+            error:
+                "Message, image or file request is required"
 
-                });
+        });
 
-        }
+}
+
+/* =====================================================
+   HANDLE FILE CREATION
+===================================================== */
+
+if (createFile) {
+
+    try {
+
+        const file =
+            createFileResponse(
+                createFile
+            );
 
 
+        console.log(
+            "📄 File created:",
+            file.filename
+        );
+
+
+        return res
+            .status(200)
+            .json({
+
+                success:
+                    true,
+
+                type:
+                    "file",
+
+                file:
+                    file
+
+            });
+
+    }
+
+    catch (fileError) {
+
+        console.error(
+            "❌ File creation error:",
+            fileError
+        );
+
+
+        return res
+            .status(400)
+            .json({
+
+                error:
+                    fileError.message ||
+                    "Could not create file"
+
+            });
+
+    }
+
+}
+        
         /* =====================================================
            GROQ API KEY
         ===================================================== */
