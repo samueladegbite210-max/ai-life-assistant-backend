@@ -1,5 +1,12 @@
 "use strict";
 
+const {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun
+} = require("docx");
+
 module.exports = async function handler(req, res) {
 
     /* =====================================================
@@ -81,7 +88,7 @@ const createFile =
    FILE CREATION HELPER
 ===================================================== */
 
-function createFileResponse(fileRequest) {
+async function createFileResponse(fileRequest) {
 
     if (
         !fileRequest ||
@@ -130,13 +137,15 @@ function createFileResponse(fileRequest) {
 
     const allowedMimeTypes = [
 
-        "text/plain",
+    "text/plain",
 
-        "text/markdown",
+    "text/markdown",
 
-        "text/csv"
+    "text/csv",
 
-    ];
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+];
 
 
     if (
@@ -161,13 +170,15 @@ function createFileResponse(fileRequest) {
 
     const allowedExtensions = [
 
-        "txt",
+    "txt",
 
-        "md",
+    "md",
 
-        "csv"
+    "csv",
 
-    ];
+    "docx"
+
+];
 
 
     if (
@@ -183,11 +194,77 @@ function createFileResponse(fileRequest) {
     }
 
 
-    const fileBuffer =
+    let fileBuffer;
+
+
+/* ==========================================
+   DOCX FILE
+========================================== */
+
+if (
+    extension === "docx"
+) {
+
+    const paragraphs =
+        content
+            .split(/\r?\n/)
+            .map(function (line) {
+
+                return new Paragraph({
+
+                    children: [
+
+                        new TextRun({
+                            text: line
+                        })
+
+                    ]
+
+                });
+
+            });
+
+
+    const document =
+        new Document({
+
+            sections: [
+
+                {
+
+                    properties: {},
+
+                    children:
+                        paragraphs
+
+                }
+
+            ]
+
+        });
+
+
+    fileBuffer =
+        await Packer.toBuffer(
+            document
+        );
+
+}
+
+
+/* ==========================================
+   TEXT / MARKDOWN / CSV
+========================================== */
+
+else {
+
+    fileBuffer =
         Buffer.from(
             content,
             "utf8"
         );
+
+}
 
 
     return {
@@ -292,10 +369,9 @@ if (createFile) {
     try {
 
         const file =
-            createFileResponse(
-                createFile
-            );
-
+    await createFileResponse(
+        createFile
+    );
 
         console.log(
             "📄 File created:",
