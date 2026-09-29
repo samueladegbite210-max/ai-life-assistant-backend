@@ -7,8 +7,11 @@ const {
     TextRun
 } = require("docx");
 
-const PDFDocument =
-    require("pdfkit");
+const {
+    PDFDocument,
+    StandardFonts,
+    rgb
+} = require("pdf-lib");
 
 module.exports = async function handler(req, res) {
 
@@ -258,7 +261,7 @@ if (
 }
 
 
-/* ==========================================
+//* ==========================================
    PDF FILE
 ========================================== */
 
@@ -266,75 +269,117 @@ else if (
     extension === "pdf"
 ) {
 
-    const pdf =
-        new PDFDocument({
-
-            size: "A4",
-
-            margin: 50
-
-        });
+    const pdfDoc =
+        await PDFDocument.create();
 
 
-    const chunks = [];
+    const page =
+        pdfDoc.addPage();
 
 
-    pdf.on(
-        "data",
-        function (chunk) {
-
-            chunks.push(chunk);
-
-        }
-    );
+    const {
+        width,
+        height
+    } =
+        page.getSize();
 
 
-    const pdfFinished =
-        new Promise(function (resolve, reject) {
-
-            pdf.on(
-                "end",
-                resolve
-            );
-
-            pdf.on(
-                "error",
-                reject
-            );
-
-        });
+    const font =
+        await pdfDoc.embedFont(
+            StandardFonts.Helvetica
+        );
 
 
-    pdf.fontSize(12);
+    const fontSize =
+        12;
+
+
+    const lineHeight =
+        18;
+
+
+    const margin =
+        50;
+
+
+    let y =
+        height - margin;
 
 
     const lines =
-        content
-            .split(/\r?\n/);
+        content.split(/\r?\n/);
 
 
-    lines.forEach(
-        function (line) {
+    for (
+        let i = 0;
+        i < lines.length;
+        i++
+    ) {
 
-            pdf.text(
-                line || " "
-            );
+        const line =
+            lines[i];
 
-            pdf.moveDown(0.4);
+
+        if (
+            y < margin
+        ) {
+
+            const newPage =
+                pdfDoc.addPage();
+
+
+            y =
+                newPage.getHeight() -
+                margin;
 
         }
-    );
 
 
-    pdf.end();
+        const currentPage =
+            pdfDoc.getPages()
+                .at(-1);
 
 
-    await pdfFinished;
+        currentPage.drawText(
+            line || " ",
+            {
+
+                x:
+                    margin,
+
+                y:
+                    y,
+
+                size:
+                    fontSize,
+
+                font:
+                    font,
+
+                color:
+                    rgb(
+                        0,
+                        0,
+                        0
+                    ),
+
+                maxWidth:
+                    width -
+                    margin * 2
+
+            }
+        );
+
+
+        y -=
+            lineHeight;
+
+    }
 
 
     fileBuffer =
-        Buffer.concat(
-            chunks
+        Buffer.from(
+            await pdfDoc.save()
         );
 
 }
