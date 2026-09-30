@@ -963,7 +963,7 @@ for one.
                         : 0.5,
 
                 max_completion_tokens:
-                    800
+    1200
 
             };
 
@@ -973,7 +973,11 @@ for one.
             ================================================= */
 
             if (model === "openai/gpt-oss-20b") {
+
     requestBody.include_reasoning = false;
+
+    requestBody.reasoning_effort = "low";
+
 }
 
 if (model === "qwen/qwen3.6-27b") {
