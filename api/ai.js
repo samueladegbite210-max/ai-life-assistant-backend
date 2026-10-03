@@ -149,6 +149,8 @@ async function createFileResponse(fileRequest) {
 
     "text/csv",
 
+    "application/json",
+
     "text/javascript",
 
     "application/javascript",
@@ -202,6 +204,8 @@ async function createFileResponse(fileRequest) {
 
     "csv",
 
+    "json",
+
     "js",
 
     "css",
@@ -223,6 +227,7 @@ async function createFileResponse(fileRequest) {
     "docx",
 
     "pdf"
+
 
 ];
 
