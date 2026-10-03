@@ -149,12 +149,31 @@ async function createFileResponse(fileRequest) {
 
     "text/csv",
 
+    "text/javascript",
+
+    "application/javascript",
+
+    "text/css",
+
+    "text/html",
+
+    "application/xml",
+
+    "text/xml",
+
+    "text/x-python",
+
+    "text/x-java-source",
+
+    "application/x-httpd-php",
+
+    "application/typescript",
+
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
     "application/pdf"
 
 ];
-
     if (
         !allowedMimeTypes.includes(
             mimeType
@@ -183,12 +202,29 @@ async function createFileResponse(fileRequest) {
 
     "csv",
 
+    "js",
+
+    "css",
+
+    "html",
+
+    "htm",
+
+    "xml",
+
+    "py",
+
+    "java",
+
+    "php",
+
+    "ts",
+
     "docx",
 
     "pdf"
 
 ];
-
 
     if (
         !allowedExtensions.includes(
@@ -197,8 +233,8 @@ async function createFileResponse(fileRequest) {
     ) {
 
         throw new Error(
-            "Only TXT, MD and CSV files are supported at this stage."
-        );
+    "This file type is not supported yet."
+);
 
     }
 
