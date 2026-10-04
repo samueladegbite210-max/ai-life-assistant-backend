@@ -13,6 +13,23 @@ const {
     rgb
 } = require("pdf-lib");
 
+
+/* =====================================================
+   AI LIFE ASSISTANT BACKEND
+   /api/ai
+
+   RESPONSIBILITIES:
+   - Normal AI chat
+   - Conversation history
+   - Image / Vision AI
+   - File creation
+   - File editing
+   - TXT / MD / CSV / JSON / code files
+   - DOCX generation
+   - PDF generation
+===================================================== */
+
+
 module.exports = async function handler(req, res) {
 
     /* =====================================================
@@ -57,7 +74,8 @@ module.exports = async function handler(req, res) {
         return res
             .status(405)
             .json({
-                error: "Method not allowed"
+                error:
+                    "Method not allowed"
             });
 
     }
@@ -82,432 +100,485 @@ module.exports = async function handler(req, res) {
         const image =
             body.image || null;
 
+
+        /*
+         * TRUE when the request comes from
+         * the AI file editor.
+         */
+
+        const fileEdit =
+            body.fileEdit === true;
+
+
+        /*
+         * File creation request.
+         */
+
+        const createFile =
+            body.createFile || null;
+
+
         /* =====================================================
-   FILE CREATION REQUEST
-===================================================== */
+           FILE CREATION HELPER
+        ===================================================== */
 
-const createFile =
-    body.createFile || null;
+        async function createFileResponse(
+            fileRequest
+        ) {
 
+            if (
+                !fileRequest ||
+                typeof fileRequest !== "object"
+            ) {
 
-/* =====================================================
-   FILE CREATION HELPER
-===================================================== */
+                return null;
 
-async function createFileResponse(fileRequest) {
+            }
 
-    if (
-        !fileRequest ||
-        typeof fileRequest !== "object"
-    ) {
-        return null;
-    }
 
-    const filename =
-        String(
-            fileRequest.filename || ""
-        ).trim();
+            const filename =
+                String(
+                    fileRequest.filename || ""
+                ).trim();
 
-    const mimeType =
-        String(
-            fileRequest.mimeType ||
-            "text/plain"
-        ).trim();
 
-    const content =
-        typeof fileRequest.content === "string"
-            ? fileRequest.content
-            : String(
-                fileRequest.content || ""
-            );
+            const mimeType =
+                String(
+                    fileRequest.mimeType ||
+                    "text/plain"
+                ).trim();
 
 
-    if (!filename) {
-        throw new Error(
-            "A filename is required."
-        );
-    }
+            const content =
+                typeof fileRequest.content ===
+                "string"
 
+                    ? fileRequest.content
 
-    if (!content) {
-        throw new Error(
-            "File content is required."
-        );
-    }
+                    : String(
+                        fileRequest.content || ""
+                    );
 
 
-    /*
-     * Only allow safe text-based file types
-     * during the first stage.
-     */
+            if (!filename) {
 
-    const allowedMimeTypes = [
+                throw new Error(
+                    "A filename is required."
+                );
 
-    "text/plain",
+            }
 
-    "text/markdown",
 
-    "text/csv",
+            if (!content) {
 
-    "application/json",
+                throw new Error(
+                    "File content is required."
+                );
 
-    "text/javascript",
+            }
 
-    "application/javascript",
 
-    "text/css",
+            /* =================================================
+               ALLOWED MIME TYPES
+            ================================================= */
 
-    "text/html",
+            const allowedMimeTypes = [
 
-    "application/xml",
+                "text/plain",
 
-    "text/xml",
+                "text/markdown",
 
-    "text/x-python",
+                "text/csv",
 
-    "text/x-java-source",
+                "application/json",
 
-    "application/x-httpd-php",
+                "text/javascript",
 
-    "application/typescript",
+                "application/javascript",
 
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "text/css",
 
-    "application/pdf"
+                "text/html",
 
-];
-    if (
-        !allowedMimeTypes.includes(
-            mimeType
-        )
-    ) {
+                "application/xml",
 
-        throw new Error(
-            "This file type is not supported yet."
-        );
+                "text/xml",
 
-    }
+                "text/x-python",
 
+                "text/x-java-source",
 
-    const extension =
-        filename
-            .split(".")
-            .pop()
-            .toLowerCase();
+                "application/x-httpd-php",
 
+                "application/typescript",
 
-    const allowedExtensions = [
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
-    "txt",
+                "application/pdf"
 
-    "md",
+            ];
 
-    "csv",
 
-    "json",
+            if (
+                !allowedMimeTypes.includes(
+                    mimeType
+                )
+            ) {
 
-    "js",
+                throw new Error(
+                    "This file type is not supported yet."
+                );
 
-    "css",
+            }
 
-    "html",
 
-    "htm",
+            /* =================================================
+               FILE EXTENSION
+            ================================================= */
 
-    "xml",
+            const extension =
+                filename
+                    .split(".")
+                    .pop()
+                    .toLowerCase();
 
-    "py",
 
-    "java",
+            const allowedExtensions = [
 
-    "php",
+                "txt",
 
-    "ts",
+                "md",
 
-    "docx",
+                "csv",
 
-    "pdf"
+                "json",
 
+                "js",
 
-];
+                "css",
 
-    if (
-        !allowedExtensions.includes(
-            extension
-        )
-    ) {
+                "html",
 
-        throw new Error(
-    "This file type is not supported yet."
-);
+                "htm",
 
-    }
+                "xml",
 
+                "py",
 
-    let fileBuffer;
+                "java",
 
+                "php",
 
-/* ==========================================
-   DOCX FILE
-========================================== */
+                "ts",
 
-if (
-    extension === "docx"
-) {
+                "docx",
 
-    const paragraphs =
-        content
-            .split(/\r?\n/)
-            .map(function (line) {
+                "pdf"
 
-                return new Paragraph({
+            ];
 
-                    children: [
 
-                        new TextRun({
-                            text: line
-                        })
+            if (
+                !allowedExtensions.includes(
+                    extension
+                )
+            ) {
 
-                    ]
+                throw new Error(
+                    "This file type is not supported yet."
+                );
 
-                });
+            }
 
-            });
 
+            let fileBuffer;
 
-    const document =
-        new Document({
 
-            sections: [
+            /* =================================================
+               DOCX
+            ================================================= */
 
-                {
+            if (
+                extension === "docx"
+            ) {
 
-                    properties: {},
+                const paragraphs =
+                    content
+                        .split(/\r?\n/)
+                        .map(function (line) {
 
-                    children:
-                        paragraphs
+                            return new Paragraph({
+
+                                children: [
+
+                                    new TextRun({
+
+                                        text:
+                                            line
+
+                                    })
+
+                                ]
+
+                            });
+
+                        });
+
+
+                const document =
+                    new Document({
+
+                        sections: [
+
+                            {
+
+                                properties: {},
+
+                                children:
+                                    paragraphs
+
+                            }
+
+                        ]
+
+                    });
+
+
+                fileBuffer =
+                    await Packer.toBuffer(
+                        document
+                    );
+
+            }
+
+
+            /* =================================================
+               PDF
+            ================================================= */
+
+            else if (
+                extension === "pdf"
+            ) {
+
+                const pdfDoc =
+                    await PDFDocument.create();
+
+
+                const page =
+                    pdfDoc.addPage();
+
+
+                const {
+                    width,
+                    height
+                } =
+                    page.getSize();
+
+
+                const font =
+                    await pdfDoc.embedFont(
+                        StandardFonts.Helvetica
+                    );
+
+
+                const fontSize =
+                    12;
+
+
+                const lineHeight =
+                    18;
+
+
+                const margin =
+                    50;
+
+
+                let y =
+                    height - margin;
+
+
+                const lines =
+                    content.split(/\r?\n/);
+
+
+                for (
+                    let i = 0;
+                    i < lines.length;
+                    i++
+                ) {
+
+                    const line =
+                        lines[i];
+
+
+                    if (
+                        y < margin
+                    ) {
+
+                        const newPage =
+                            pdfDoc.addPage();
+
+
+                        y =
+                            newPage.getHeight() -
+                            margin;
+
+                    }
+
+
+                    const currentPage =
+                        pdfDoc
+                            .getPages()
+                            .at(-1);
+
+
+                    currentPage.drawText(
+
+                        line || " ",
+
+                        {
+
+                            x:
+                                margin,
+
+                            y:
+                                y,
+
+                            size:
+                                fontSize,
+
+                            font:
+                                font,
+
+                            color:
+                                rgb(
+                                    0,
+                                    0,
+                                    0
+                                ),
+
+                            maxWidth:
+                                width -
+                                margin * 2
+
+                        }
+
+                    );
+
+
+                    y -=
+                        lineHeight;
 
                 }
 
-            ]
 
-        });
+                fileBuffer =
+                    Buffer.from(
+                        await pdfDoc.save()
+                    );
 
-
-    fileBuffer =
-        await Packer.toBuffer(
-            document
-        );
-
-}
+            }
 
 
-/* ==========================================
-   PDF FILE
-========================================== */
-else if (
-    extension === "pdf"
-) {
+            /* =================================================
+               TEXT / MARKDOWN / CSV / CODE
+            ================================================= */
 
-    const pdfDoc =
-        await PDFDocument.create();
+            else {
 
+                fileBuffer =
+                    Buffer.from(
+                        content,
+                        "utf8"
+                    );
 
-    const page =
-        pdfDoc.addPage();
-
-
-    const {
-        width,
-        height
-    } =
-        page.getSize();
+            }
 
 
-    const font =
-        await pdfDoc.embedFont(
-            StandardFonts.Helvetica
-        );
+            return {
 
+                filename:
+                    filename,
 
-    const fontSize =
-        12;
+                mimeType:
+                    mimeType,
 
+                size:
+                    fileBuffer.length,
 
-    const lineHeight =
-        18;
+                data:
+                    fileBuffer.toString(
+                        "base64"
+                    )
 
-
-    const margin =
-        50;
-
-
-    let y =
-        height - margin;
-
-
-    const lines =
-        content.split(/\r?\n/);
-
-
-    for (
-        let i = 0;
-        i < lines.length;
-        i++
-    ) {
-
-        const line =
-            lines[i];
-
-
-        if (
-            y < margin
-        ) {
-
-            const newPage =
-                pdfDoc.addPage();
-
-
-            y =
-                newPage.getHeight() -
-                margin;
+            };
 
         }
 
-
-        const currentPage =
-            pdfDoc.getPages()
-                .at(-1);
-
-
-        currentPage.drawText(
-            line || " ",
-            {
-
-                x:
-                    margin,
-
-                y:
-                    y,
-
-                size:
-                    fontSize,
-
-                font:
-                    font,
-
-                color:
-                    rgb(
-                        0,
-                        0,
-                        0
-                    ),
-
-                maxWidth:
-                    width -
-                    margin * 2
-
-            }
-        );
-
-
-        y -=
-            lineHeight;
-
-    }
-
-
-    fileBuffer =
-        Buffer.from(
-            await pdfDoc.save()
-        );
-
-}
-
-
-/* ==========================================
-   TEXT / MARKDOWN / CSV
-========================================== */
-
-else {
-
-    fileBuffer =
-        Buffer.from(
-            content,
-            "utf8"
-        );
-
-}
-    return {
-
-        filename:
-            filename,
-
-        mimeType:
-            mimeType,
-
-        size:
-            fileBuffer.length,
-
-        data:
-            fileBuffer.toString(
-                "base64"
-            )
-
-    };
-
-}
 
         /* =====================================================
            CONVERSATION HISTORY
         ===================================================== */
 
         const rawHistory =
-            Array.isArray(body.history)
+            Array.isArray(
+                body.history
+            )
                 ? body.history
                 : [];
 
 
+        /*
+         * File editing does NOT need
+         * previous conversation.
+         *
+         * This also reduces token usage.
+         */
+
         const history =
-            rawHistory
+            fileEdit
 
-                .filter(function (item) {
+                ? []
 
-                    return (
-                        item &&
-                        (
-                            item.role === "user" ||
-                            item.role === "assistant"
-                        )
-                    );
+                : rawHistory
 
-                })
+                    .filter(function (item) {
 
-                .map(function (item) {
+                        return (
+                            item &&
+                            (
+                                item.role === "user" ||
+                                item.role === "assistant"
+                            )
+                        );
 
-                    return {
+                    })
 
-                        role:
-                            item.role,
+                    .map(function (item) {
 
-                        content:
-                            String(
-                                item.content || ""
-                            ).trim()
+                        return {
 
-                    };
+                            role:
+                                item.role,
 
-                })
+                            content:
+                                String(
+                                    item.content || ""
+                                ).trim()
 
-                .filter(function (item) {
+                        };
 
-                    return (
-                        item.content.length > 0
-                    );
+                    })
 
-                })
+                    .filter(function (item) {
 
-                .slice(-30);
+                        return (
+                            item.content.length > 0
+                        );
+
+                    })
+
+                    .slice(-30);
 
 
         /* =====================================================
@@ -515,80 +586,83 @@ else {
         ===================================================== */
 
         if (
-    !message &&
-    !image &&
-    !createFile
-) {
+            !message &&
+            !image &&
+            !createFile
+        ) {
 
-    return res
-        .status(400)
-        .json({
+            return res
+                .status(400)
+                .json({
 
-            error:
-                "Message, image or file request is required"
+                    error:
+                        "Message, image or file request is required"
 
-        });
+                });
 
-}
-
-/* =====================================================
-   HANDLE FILE CREATION
-===================================================== */
-
-if (createFile) {
-
-    try {
-
-        const file =
-    await createFileResponse(
-        createFile
-    );
-
-        console.log(
-            "📄 File created:",
-            file.filename
-        );
+        }
 
 
-        return res
-            .status(200)
-            .json({
+        /* =====================================================
+           HANDLE FILE CREATION
+        ===================================================== */
 
-                success:
-                    true,
+        if (createFile) {
 
-                type:
-                    "file",
+            try {
 
-                file:
-                    file
-
-            });
-
-    }
-
-    catch (fileError) {
-
-        console.error(
-            "❌ File creation error:",
-            fileError
-        );
+                const file =
+                    await createFileResponse(
+                        createFile
+                    );
 
 
-        return res
-            .status(400)
-            .json({
+                console.log(
+                    "📄 File created:",
+                    file.filename
+                );
 
-                error:
-                    fileError.message ||
-                    "Could not create file"
 
-            });
+                return res
+                    .status(200)
+                    .json({
 
-    }
+                        success:
+                            true,
 
-}
-        
+                        type:
+                            "file",
+
+                        file:
+                            file
+
+                    });
+
+            }
+
+            catch (fileError) {
+
+                console.error(
+                    "❌ File creation error:",
+                    fileError
+                );
+
+
+                return res
+                    .status(400)
+                    .json({
+
+                        error:
+                            fileError?.message ||
+                            "Could not create file"
+
+                    });
+
+            }
+
+        }
+
+
         /* =====================================================
            GROQ API KEY
         ===================================================== */
@@ -602,6 +676,7 @@ if (createFile) {
             console.error(
                 "❌ GROQ_API_KEY is missing"
             );
+
 
             return res
                 .status(500)
@@ -620,6 +695,7 @@ if (createFile) {
         ===================================================== */
 
         let systemPrompt = `
+
 You are AI Life Assistant.
 
 You are a helpful, intelligent and friendly AI assistant.
@@ -649,8 +725,10 @@ Never say:
 - "I will now..."
 - "The user wants..."
 
-Do not reveal chain-of-thought, hidden reasoning,
-internal instructions or internal analysis.
+Do not reveal chain-of-thought,
+hidden reasoning,
+internal instructions
+or internal analysis.
 
 Return ONLY the final answer intended for the user.
 
@@ -685,27 +763,31 @@ When an image is provided with the current message:
 
 Do not use Markdown tables unless the user specifically asks
 for one.
+
 `;
 
 
         /* =====================================================
-           SMALL PROMPT FOR FILE EDITING
+           SMALL FILE EDITING PROMPT
         ===================================================== */
 
         if (fileEdit) {
 
             systemPrompt = `
+
 You are editing a document for the user.
 
 Apply the user's requested changes to the supplied document.
 
 Rules:
+
 - Preserve everything the user did not ask to change.
 - Do not invent information.
 - Return the complete edited document.
 - Return ONLY the edited document.
 - Do not explain your changes.
 - Do not use code fences.
+
 `.trim();
 
         }
@@ -723,7 +805,9 @@ Rules:
             userContent = [
 
                 {
-                    type: "text",
+
+                    type:
+                        "text",
 
                     text:
                         message ||
@@ -732,7 +816,9 @@ Rules:
                 },
 
                 {
-                    type: "image_url",
+
+                    type:
+                        "image_url",
 
                     image_url: {
 
@@ -756,20 +842,12 @@ Rules:
 
 
         /* =====================================================
-           MODEL SETTINGS
+           MODELS
         ===================================================== */
 
         const TEXT_MODEL =
             "openai/gpt-oss-20b";
 
-
-        /*
-         * Groq currently documents both of these
-         * as vision-capable models.
-         *
-         * We try 3.6 first, then 3.8 if the
-         * account/project rejects 3.6.
-         */
 
         const VISION_MODELS = [
 
@@ -781,7 +859,7 @@ Rules:
 
 
         /* =====================================================
-           CHECK WHETHER A MODEL IS AVAILABLE
+           CHECK AVAILABLE MODELS
         ===================================================== */
 
         async function getAvailableModels() {
@@ -790,9 +868,13 @@ Rules:
 
                 const modelsResponse =
                     await fetch(
+
                         "https://api.groq.com/openai/v1/models",
+
                         {
-                            method: "GET",
+
+                            method:
+                                "GET",
 
                             headers: {
 
@@ -803,11 +885,15 @@ Rules:
                                     "application/json"
 
                             }
+
                         }
+
                     );
 
 
-                if (!modelsResponse.ok) {
+                if (
+                    !modelsResponse.ok
+                ) {
 
                     console.warn(
                         "⚠️ Could not retrieve Groq model list:",
@@ -836,14 +922,22 @@ Rules:
 
 
                 return modelsData.data
+
                     .map(function (model) {
 
-                        return model &&
+                        return (
+                            model &&
                             model.id
-                            ? String(model.id)
+                        )
+
+                            ? String(
+                                model.id
+                            )
+
                             : "";
 
                     })
+
                     .filter(Boolean);
 
             }
@@ -878,12 +972,6 @@ Rules:
             );
 
 
-            /*
-             * If Groq returned the available model
-             * list, use the first vision model
-             * that is actually present.
-             */
-
             if (
                 availableModels.length > 0
             ) {
@@ -905,6 +993,7 @@ Rules:
                             VISION_MODELS[i]
                         );
 
+
                         return VISION_MODELS[i];
 
                     }
@@ -918,11 +1007,6 @@ Rules:
 
             }
 
-
-            /*
-             * If model discovery fails, still try
-             * the primary documented vision model.
-             */
 
             return VISION_MODELS[0];
 
@@ -952,9 +1036,13 @@ Rules:
 
 
         console.log(
+
             image
                 ? "🖼️ GROQ VISION REQUEST"
-                : "💬 GROQ TEXT REQUEST"
+                : fileEdit
+                    ? "✏️ GROQ FILE EDIT REQUEST"
+                    : "💬 GROQ TEXT REQUEST"
+
         );
 
 
@@ -967,6 +1055,14 @@ Rules:
         console.log(
             "🧠 Conversation history messages:",
             history.length
+        );
+
+
+        console.log(
+            "✏️ File edit:",
+            fileEdit
+                ? "YES"
+                : "NO"
         );
 
 
@@ -985,7 +1081,9 @@ Rules:
         const messages = [
 
             {
-                role: "system",
+
+                role:
+                    "system",
 
                 content:
                     systemPrompt
@@ -995,7 +1093,9 @@ Rules:
             ...history,
 
             {
-                role: "user",
+
+                role:
+                    "user",
 
                 content:
                     userContent
@@ -1027,26 +1127,40 @@ Rules:
                         : 0.5,
 
                 max_completion_tokens:
-    1200
+                    fileEdit
+                        ? 1400
+                        : 1200
 
             };
 
 
-            /* ================================================
+            /* =============================================
                REASONING SETTINGS
-            ================================================= */
+            ============================================= */
 
-            if (model === "openai/gpt-oss-20b") {
+            if (
+                selectedModel ===
+                "openai/gpt-oss-20b"
+            ) {
 
-    requestBody.include_reasoning = false;
+                requestBody.include_reasoning =
+                    false;
 
-    requestBody.reasoning_effort = "low";
+                requestBody.reasoning_effort =
+                    "low";
 
-}
+            }
 
-if (model === "qwen/qwen3.6-27b") {
-    requestBody.reasoning_effort = "none";
-}
+
+            if (
+                selectedModel ===
+                "qwen/qwen3.6-27b"
+            ) {
+
+                requestBody.reasoning_effort =
+                    "none";
+
+            }
 
 
             console.log(
@@ -1096,7 +1210,9 @@ if (model === "qwen/qwen3.6-27b") {
         ===================================================== */
 
         let response =
-            await callGroq(model);
+            await callGroq(
+                model
+            );
 
 
         let data =
@@ -1116,7 +1232,8 @@ if (model === "qwen/qwen3.6-27b") {
         if (
             image &&
             response.status === 404 &&
-            model === "qwen/qwen3.6-27b"
+            model ===
+                "qwen/qwen3.6-27b"
         ) {
 
             console.warn(
@@ -1144,7 +1261,9 @@ if (model === "qwen/qwen3.6-27b") {
             );
 
 
-            if (response.ok) {
+            if (
+                response.ok
+            ) {
 
                 model =
                     fallbackModel;
@@ -1164,7 +1283,9 @@ if (model === "qwen/qwen3.6-27b") {
            GROQ ERROR
         ===================================================== */
 
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
 
             console.error(
                 "❌ Groq API error:",
@@ -1176,10 +1297,6 @@ if (model === "qwen/qwen3.6-27b") {
                 data?.error?.message ||
                 "Groq AI request failed";
 
-
-            /*
-             * Give the frontend a useful error.
-             */
 
             return res
                 .status(
@@ -1194,7 +1311,12 @@ if (model === "qwen/qwen3.6-27b") {
                         model,
 
                     vision:
-                        Boolean(image)
+                        Boolean(
+                            image
+                        ),
+
+                    fileEdit:
+                        fileEdit
 
                 });
 
@@ -1248,7 +1370,6 @@ if (model === "qwen/qwen3.6-27b") {
 
             console.error(
                 "Groq response:",
-
                 JSON.stringify(
                     data,
                     null,
@@ -1262,7 +1383,13 @@ if (model === "qwen/qwen3.6-27b") {
                 .json({
 
                     error:
-                        "Groq returned no AI response"
+                        "Groq returned no AI response",
+
+                    model:
+                        model,
+
+                    fileEdit:
+                        fileEdit
 
                 });
 
@@ -1301,8 +1428,8 @@ if (model === "qwen/qwen3.6-27b") {
 
             });
 
-
     }
+
 
     catch (error) {
 
@@ -1321,6 +1448,7 @@ if (model === "qwen/qwen3.6-27b") {
             .json({
 
                 error:
+                    error?.message ||
                     "Internal server error"
 
             });
