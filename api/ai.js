@@ -86,383 +86,381 @@ module.exports = async function handler(req, res) {
         const fileEdit =
             body.fileEdit === true;
 
-
         /* =====================================================
-           FILE CREATION REQUEST
-        ===================================================== */
+   FILE CREATION REQUEST
+===================================================== */
 
-        const createFile =
-            body.createFile || null;
+const createFile =
+    body.createFile || null;
 
 
-        /* =====================================================
-           FILE CREATION HELPER
-        ===================================================== */
+/* =====================================================
+   FILE CREATION HELPER
+===================================================== */
 
-        async function createFileResponse(fileRequest) {
+async function createFileResponse(fileRequest) {
 
-            if (
-                !fileRequest ||
-                typeof fileRequest !== "object"
-            ) {
-                return null;
-            }
+    if (
+        !fileRequest ||
+        typeof fileRequest !== "object"
+    ) {
+        return null;
+    }
 
-            const filename =
-                String(
-                    fileRequest.filename || ""
-                ).trim();
+    const filename =
+        String(
+            fileRequest.filename || ""
+        ).trim();
 
-            const mimeType =
-                String(
-                    fileRequest.mimeType ||
-                    "text/plain"
-                ).trim();
+    const mimeType =
+        String(
+            fileRequest.mimeType ||
+            "text/plain"
+        ).trim();
 
-            const content =
-                typeof fileRequest.content === "string"
-                    ? fileRequest.content
-                    : String(
-                        fileRequest.content || ""
-                    );
+    const content =
+        typeof fileRequest.content === "string"
+            ? fileRequest.content
+            : String(
+                fileRequest.content || ""
+            );
 
 
-            if (!filename) {
-                throw new Error(
-                    "A filename is required."
-                );
-            }
+    if (!filename) {
+        throw new Error(
+            "A filename is required."
+        );
+    }
 
 
-            if (!content) {
-                throw new Error(
-                    "File content is required."
-                );
-            }
+    if (!content) {
+        throw new Error(
+            "File content is required."
+        );
+    }
 
 
-            /*
-             * Only allow safe text-based file types
-             * during the first stage.
-             */
+    /*
+     * Only allow safe text-based file types
+     * during the first stage.
+     */
 
-            const allowedMimeTypes = [
+    const allowedMimeTypes = [
 
-                "text/plain",
+    "text/plain",
 
-                "text/markdown",
+    "text/markdown",
 
-                "text/csv",
+    "text/csv",
 
-                "application/json",
+    "application/json",
 
-                "text/javascript",
+    "text/javascript",
 
-                "application/javascript",
+    "application/javascript",
 
-                "text/css",
+    "text/css",
 
-                "text/html",
+    "text/html",
 
-                "application/xml",
+    "application/xml",
 
-                "text/xml",
+    "text/xml",
 
-                "text/x-python",
+    "text/x-python",
 
-                "text/x-java-source",
+    "text/x-java-source",
 
-                "application/x-httpd-php",
+    "application/x-httpd-php",
 
-                "application/typescript",
+    "application/typescript",
 
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
-                "application/pdf"
+    "application/pdf"
 
-            ];
+];
+    if (
+        !allowedMimeTypes.includes(
+            mimeType
+        )
+    ) {
 
-            if (
-                !allowedMimeTypes.includes(
-                    mimeType
-                )
-            ) {
+        throw new Error(
+            "This file type is not supported yet."
+        );
 
-                throw new Error(
-                    "This file type is not supported yet."
-                );
+    }
 
-            }
 
+    const extension =
+        filename
+            .split(".")
+            .pop()
+            .toLowerCase();
 
-            const extension =
-                filename
-                    .split(".")
-                    .pop()
-                    .toLowerCase();
 
+    const allowedExtensions = [
 
-            const allowedExtensions = [
+    "txt",
 
-                "txt",
+    "md",
 
-                "md",
+    "csv",
 
-                "csv",
+    "json",
 
-                "json",
+    "js",
 
-                "js",
+    "css",
 
-                "css",
+    "html",
 
-                "html",
+    "htm",
 
-                "htm",
+    "xml",
 
-                "xml",
+    "py",
 
-                "py",
+    "java",
 
-                "java",
+    "php",
 
-                "php",
+    "ts",
 
-                "ts",
+    "docx",
 
-                "docx",
+    "pdf"
 
-                "pdf"
 
-            ];
+];
 
-            if (
-                !allowedExtensions.includes(
-                    extension
-                )
-            ) {
+    if (
+        !allowedExtensions.includes(
+            extension
+        )
+    ) {
 
-                throw new Error(
-                    "This file type is not supported yet."
-                );
+        throw new Error(
+    "This file type is not supported yet."
+);
 
-            }
+    }
 
 
-            let fileBuffer;
+    let fileBuffer;
 
 
-            /* ==========================================
-               DOCX FILE
-            ========================================== */
+/* ==========================================
+   DOCX FILE
+========================================== */
 
-            if (
-                extension === "docx"
-            ) {
+if (
+    extension === "docx"
+) {
 
-                const paragraphs =
-                    content
-                        .split(/\r?\n/)
-                        .map(function (line) {
+    const paragraphs =
+        content
+            .split(/\r?\n/)
+            .map(function (line) {
 
-                            return new Paragraph({
+                return new Paragraph({
 
-                                children: [
+                    children: [
 
-                                    new TextRun({
-                                        text: line
-                                    })
+                        new TextRun({
+                            text: line
+                        })
 
-                                ]
+                    ]
 
-                            });
+                });
 
-                        });
+            });
 
 
-                const document =
-                    new Document({
+    const document =
+        new Document({
 
-                        sections: [
+            sections: [
 
-                            {
+                {
 
-                                properties: {},
+                    properties: {},
 
-                                children:
-                                    paragraphs
-
-                            }
-
-                        ]
-
-                    });
-
-
-                fileBuffer =
-                    await Packer.toBuffer(
-                        document
-                    );
-
-            }
-
-
-            /* ==========================================
-               PDF FILE
-            ========================================== */
-            else if (
-                extension === "pdf"
-            ) {
-
-                const pdfDoc =
-                    await PDFDocument.create();
-
-
-                const page =
-                    pdfDoc.addPage();
-
-
-                const {
-                    width,
-                    height
-                } =
-                    page.getSize();
-
-
-                const font =
-                    await pdfDoc.embedFont(
-                        StandardFonts.Helvetica
-                    );
-
-
-                const fontSize =
-                    12;
-
-
-                const lineHeight =
-                    18;
-
-
-                const margin =
-                    50;
-
-
-                let y =
-                    height - margin;
-
-
-                const lines =
-                    content.split(/\r?\n/);
-
-
-                for (
-                    let i = 0;
-                    i < lines.length;
-                    i++
-                ) {
-
-                    const line =
-                        lines[i];
-
-
-                    if (
-                        y < margin
-                    ) {
-
-                        const newPage =
-                            pdfDoc.addPage();
-
-
-                        y =
-                            newPage.getHeight() -
-                            margin;
-
-                    }
-
-
-                    const currentPage =
-                        pdfDoc.getPages()
-                            .at(-1);
-
-
-                    currentPage.drawText(
-                        line || " ",
-                        {
-
-                            x:
-                                margin,
-
-                            y:
-                                y,
-
-                            size:
-                                fontSize,
-
-                            font:
-                                font,
-
-                            color:
-                                rgb(
-                                    0,
-                                    0,
-                                    0
-                                ),
-
-                            maxWidth:
-                                width -
-                                margin * 2
-
-                        }
-                    );
-
-
-                    y -=
-                        lineHeight;
+                    children:
+                        paragraphs
 
                 }
 
+            ]
 
-                fileBuffer =
-                    Buffer.from(
-                        await pdfDoc.save()
-                    );
-
-            }
+        });
 
 
-            /* ==========================================
-               TEXT / MARKDOWN / CSV
-            ========================================== */
+    fileBuffer =
+        await Packer.toBuffer(
+            document
+        );
 
-            else {
+}
 
-                fileBuffer =
-                    Buffer.from(
-                        content,
-                        "utf8"
-                    );
 
-            }
+/* ==========================================
+   PDF FILE
+========================================== */
+else if (
+    extension === "pdf"
+) {
 
-            return {
+    const pdfDoc =
+        await PDFDocument.create();
 
-                filename:
-                    filename,
 
-                mimeType:
-                    mimeType,
+    const page =
+        pdfDoc.addPage();
 
-                size:
-                    fileBuffer.length,
 
-                data:
-                    fileBuffer.toString(
-                        "base64"
-                    )
+    const {
+        width,
+        height
+    } =
+        page.getSize();
 
-            };
+
+    const font =
+        await pdfDoc.embedFont(
+            StandardFonts.Helvetica
+        );
+
+
+    const fontSize =
+        12;
+
+
+    const lineHeight =
+        18;
+
+
+    const margin =
+        50;
+
+
+    let y =
+        height - margin;
+
+
+    const lines =
+        content.split(/\r?\n/);
+
+
+    for (
+        let i = 0;
+        i < lines.length;
+        i++
+    ) {
+
+        const line =
+            lines[i];
+
+
+        if (
+            y < margin
+        ) {
+
+            const newPage =
+                pdfDoc.addPage();
+
+
+            y =
+                newPage.getHeight() -
+                margin;
 
         }
+
+
+        const currentPage =
+            pdfDoc.getPages()
+                .at(-1);
+
+
+        currentPage.drawText(
+            line || " ",
+            {
+
+                x:
+                    margin,
+
+                y:
+                    y,
+
+                size:
+                    fontSize,
+
+                font:
+                    font,
+
+                color:
+                    rgb(
+                        0,
+                        0,
+                        0
+                    ),
+
+                maxWidth:
+                    width -
+                    margin * 2
+
+            }
+        );
+
+
+        y -=
+            lineHeight;
+
+    }
+
+
+    fileBuffer =
+        Buffer.from(
+            await pdfDoc.save()
+        );
+
+}
+
+
+/* ==========================================
+   TEXT / MARKDOWN / CSV
+========================================== */
+
+else {
+
+    fileBuffer =
+        Buffer.from(
+            content,
+            "utf8"
+        );
+
+}
+    return {
+
+        filename:
+            filename,
+
+        mimeType:
+            mimeType,
+
+        size:
+            fileBuffer.length,
+
+        data:
+            fileBuffer.toString(
+                "base64"
+            )
+
+    };
+
+}
 
         /* =====================================================
            CONVERSATION HISTORY
@@ -521,79 +519,79 @@ module.exports = async function handler(req, res) {
         ===================================================== */
 
         if (
-            !message &&
-            !image &&
-            !createFile
-        ) {
+    !message &&
+    !image &&
+    !createFile
+) {
 
-            return res
-                .status(400)
-                .json({
+    return res
+        .status(400)
+        .json({
 
-                    error:
-                        "Message, image or file request is required"
+            error:
+                "Message, image or file request is required"
 
-                });
+        });
 
-        }
+}
 
-        /* =====================================================
-           HANDLE FILE CREATION
-        ===================================================== */
+/* =====================================================
+   HANDLE FILE CREATION
+===================================================== */
 
-        if (createFile) {
+if (createFile) {
 
-            try {
+    try {
 
-                const file =
-                    await createFileResponse(
-                        createFile
-                    );
+        const file =
+    await createFileResponse(
+        createFile
+    );
 
-                console.log(
-                    "📄 File created:",
-                    file.filename
-                );
-
-
-                return res
-                    .status(200)
-                    .json({
-
-                        success:
-                            true,
-
-                        type:
-                            "file",
-
-                        file:
-                            file
-
-                    });
-
-            }
-
-            catch (fileError) {
-
-                console.error(
-                    "❌ File creation error:",
-                    fileError
-                );
+        console.log(
+            "📄 File created:",
+            file.filename
+        );
 
 
-                return res
-                    .status(400)
-                    .json({
+        return res
+            .status(200)
+            .json({
 
-                        error:
-                            fileError.message ||
-                            "Could not create file"
+                success:
+                    true,
 
-                    });
+                type:
+                    "file",
 
-            }
+                file:
+                    file
 
-        }
+            });
+
+    }
+
+    catch (fileError) {
+
+        console.error(
+            "❌ File creation error:",
+            fileError
+        );
+
+
+        return res
+            .status(400)
+            .json({
+
+                error:
+                    fileError.message ||
+                    "Could not create file"
+
+            });
+
+    }
+
+}
         
         /* =====================================================
            GROQ API KEY
@@ -1010,7 +1008,7 @@ for one.
                         : 0.5,
 
                 max_completion_tokens:
-                    1200
+    1200
 
             };
 
@@ -1021,15 +1019,15 @@ for one.
 
             if (model === "openai/gpt-oss-20b") {
 
-                requestBody.include_reasoning = false;
+    requestBody.include_reasoning = false;
 
-                requestBody.reasoning_effort = "low";
+    requestBody.reasoning_effort = "low";
 
-            }
+}
 
-            if (model === "qwen/qwen3.6-27b") {
-                requestBody.reasoning_effort = "none";
-            }
+if (model === "qwen/qwen3.6-27b") {
+    requestBody.reasoning_effort = "none";
+}
 
 
             console.log(
