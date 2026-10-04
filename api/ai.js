@@ -14,22 +14,6 @@ const {
 } = require("pdf-lib");
 
 
-/* =====================================================
-   AI LIFE ASSISTANT BACKEND
-   /api/ai
-
-   RESPONSIBILITIES:
-   - Normal AI chat
-   - Conversation history
-   - Image / Vision AI
-   - File creation
-   - File editing
-   - TXT / MD / CSV / JSON / code files
-   - DOCX generation
-   - PDF generation
-===================================================== */
-
-
 module.exports = async function handler(req, res) {
 
     /* =====================================================
@@ -52,40 +36,19 @@ module.exports = async function handler(req, res) {
     );
 
 
-    /* =====================================================
-       OPTIONS
-    ===================================================== */
-
     if (req.method === "OPTIONS") {
-
-        return res
-            .status(200)
-            .end();
-
+        return res.status(200).end();
     }
 
 
-    /* =====================================================
-       ONLY POST
-    ===================================================== */
-
     if (req.method !== "POST") {
-
-        return res
-            .status(405)
-            .json({
-                error:
-                    "Method not allowed"
-            });
-
+        return res.status(405).json({
+            error: "Method not allowed"
+        });
     }
 
 
     try {
-
-        /* =====================================================
-           REQUEST BODY
-        ===================================================== */
 
         const body =
             req.body || {};
@@ -101,70 +64,65 @@ module.exports = async function handler(req, res) {
             body.image || null;
 
 
-        /*
-         * TRUE when the request comes from
-         * the AI file editor.
-         */
-
-        const fileEdit =
-            body.fileEdit === true;
-
-
-        /*
-         * File creation request.
-         */
+        /* =================================================
+           FILE CREATION REQUEST
+        ================================================= */
 
         const createFile =
             body.createFile || null;
 
 
-        /* =====================================================
+        /* =================================================
+           FILE EDIT REQUEST
+           THIS WAS MISSING BEFORE
+        ================================================= */
+
+        const fileEdit =
+            body.fileEdit || null;
+
+
+        /* =================================================
            FILE CREATION HELPER
-        ===================================================== */
+        ================================================= */
 
         async function createFileResponse(
             fileRequest
         ) {
 
-            if (
-                !fileRequest ||
-                typeof fileRequest !== "object"
-            ) {
+            if (!fileRequest) {
 
-                return null;
+                throw new Error(
+                    "File request is missing."
+                );
 
             }
 
 
-            const filename =
+            let filename =
                 String(
-                    fileRequest.filename || ""
+                    fileRequest.filename ||
+                    "generated-file.txt"
                 ).trim();
 
 
-            const mimeType =
+            let mimeType =
                 String(
                     fileRequest.mimeType ||
                     "text/plain"
                 ).trim();
 
 
-            const content =
-                typeof fileRequest.content ===
-                "string"
-
-                    ? fileRequest.content
-
-                    : String(
-                        fileRequest.content || ""
-                    );
+            let content =
+                String(
+                    fileRequest.content ||
+                    ""
+                );
 
 
             if (!filename) {
 
-                throw new Error(
-                    "A filename is required."
-                );
+                filename =
+                    "generated-file.txt";
 
             }
 
@@ -172,44 +130,36 @@ module.exports = async function handler(req, res) {
             if (!content) {
 
                 throw new Error(
-                    "File content is required."
+                    "File content is empty."
                 );
 
             }
 
 
-            /* =================================================
+            /* =============================================
                ALLOWED MIME TYPES
-            ================================================= */
+            ============================================= */
 
             const allowedMimeTypes = [
 
                 "text/plain",
-
                 "text/markdown",
-
                 "text/csv",
-
                 "application/json",
 
                 "text/javascript",
-
                 "application/javascript",
 
                 "text/css",
-
                 "text/html",
 
                 "application/xml",
-
                 "text/xml",
 
                 "text/x-python",
-
                 "text/x-java-source",
 
                 "application/x-httpd-php",
-
                 "application/typescript",
 
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -219,63 +169,44 @@ module.exports = async function handler(req, res) {
             ];
 
 
-            if (
-                !allowedMimeTypes.includes(
-                    mimeType
-                )
-            ) {
-
-                throw new Error(
-                    "This file type is not supported yet."
-                );
-
-            }
-
-
-            /* =================================================
-               FILE EXTENSION
-            ================================================= */
-
-            const extension =
-                filename
-                    .split(".")
-                    .pop()
-                    .toLowerCase();
-
+            /* =============================================
+               ALLOWED EXTENSIONS
+            ============================================= */
 
             const allowedExtensions = [
 
                 "txt",
-
                 "md",
-
                 "csv",
-
                 "json",
 
                 "js",
-
                 "css",
-
                 "html",
-
                 "htm",
-
                 "xml",
 
                 "py",
-
                 "java",
-
                 "php",
-
                 "ts",
 
                 "docx",
-
                 "pdf"
 
             ];
+
+
+            const extensionMatch =
+                filename.match(
+                    /\.([a-z0-9]+)$/i
+                );
+
+
+            const extension =
+                extensionMatch
+                    ? extensionMatch[1].toLowerCase()
+                    : "";
 
 
             if (
@@ -291,48 +222,134 @@ module.exports = async function handler(req, res) {
             }
 
 
-            let fileBuffer;
+            /* =============================================
+               MIME TYPE NORMALIZATION
+            ============================================= */
+
+            const extensionMimeMap = {
+
+                txt:
+                    "text/plain",
+
+                md:
+                    "text/markdown",
+
+                csv:
+                    "text/csv",
+
+                json:
+                    "application/json",
+
+                js:
+                    "application/javascript",
+
+                css:
+                    "text/css",
+
+                html:
+                    "text/html",
+
+                htm:
+                    "text/html",
+
+                xml:
+                    "application/xml",
+
+                py:
+                    "text/x-python",
+
+                java:
+                    "text/x-java-source",
+
+                php:
+                    "application/x-httpd-php",
+
+                ts:
+                    "application/typescript",
+
+                docx:
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+                pdf:
+                    "application/pdf"
+
+            };
 
 
-            /* =================================================
+            /*
+             * Always trust the filename extension.
+             *
+             * This is important when a user says:
+             * "Change it to chat-edited.js"
+             *
+             * We do not want the old CSS MIME type
+             * to remain attached to the new JS file.
+             */
+
+            if (
+                extensionMimeMap[extension]
+            ) {
+
+                mimeType =
+                    extensionMimeMap[
+                        extension
+                    ];
+
+            }
+
+
+            if (
+                !allowedMimeTypes.includes(
+                    mimeType
+                )
+            ) {
+
+                mimeType =
+                    extensionMimeMap[
+                        extension
+                    ] ||
+                    "text/plain";
+
+            }
+
+
+            /* =============================================
                DOCX
-            ================================================= */
+            ============================================= */
 
             if (
                 extension === "docx"
             ) {
 
-                const paragraphs =
-                    content
-                        .split(/\r?\n/)
-                        .map(function (line) {
+                const lines =
+                    content.split(
+                        /\r?\n/
+                    );
 
-                            return new Paragraph({
+
+                const paragraphs =
+                    lines.map(
+                        line =>
+                            new Paragraph({
 
                                 children: [
 
                                     new TextRun({
-
-                                        text:
-                                            line
-
+                                        text: line
                                     })
 
                                 ]
 
-                            });
+                            })
+                    );
 
-                        });
 
-
-                const document =
+                const doc =
                     new Document({
 
                         sections: [
 
                             {
-
-                                properties: {},
 
                                 children:
                                     paragraphs
@@ -344,35 +361,43 @@ module.exports = async function handler(req, res) {
                     });
 
 
-                fileBuffer =
+                const buffer =
                     await Packer.toBuffer(
-                        document
+                        doc
                     );
+
+
+                return {
+
+                    success: true,
+
+                    filename,
+
+                    mimeType,
+
+                    size:
+                        buffer.length,
+
+                    data:
+                        buffer.toString(
+                            "base64"
+                        )
+
+                };
 
             }
 
 
-            /* =================================================
+            /* =============================================
                PDF
-            ================================================= */
+            ============================================= */
 
-            else if (
+            if (
                 extension === "pdf"
             ) {
 
                 const pdfDoc =
                     await PDFDocument.create();
-
-
-                const page =
-                    pdfDoc.addPage();
-
-
-                const {
-                    width,
-                    height
-                } =
-                    page.getSize();
 
 
                 const font =
@@ -381,88 +406,91 @@ module.exports = async function handler(req, res) {
                     );
 
 
-                const fontSize =
-                    12;
+                const pageWidth =
+                    595;
 
 
-                const lineHeight =
-                    18;
+                const pageHeight =
+                    842;
 
 
                 const margin =
                     50;
 
 
-                let y =
-                    height - margin;
+                const fontSize =
+                    11;
+
+
+                const lineHeight =
+                    16;
 
 
                 const lines =
-                    content.split(/\r?\n/);
+                    content.split(
+                        /\r?\n/
+                    );
+
+
+                let page =
+                    pdfDoc.addPage([
+                        pageWidth,
+                        pageHeight
+                    ]);
+
+
+                let y =
+                    pageHeight -
+                    margin;
 
 
                 for (
-                    let i = 0;
-                    i < lines.length;
-                    i++
+                    const line of lines
                 ) {
 
-                    const line =
-                        lines[i];
-
-
                     if (
-                        y < margin
+                        y <
+                        margin
                     ) {
 
-                        const newPage =
-                            pdfDoc.addPage();
-
+                        page =
+                            pdfDoc.addPage([
+                                pageWidth,
+                                pageHeight
+                            ]);
 
                         y =
-                            newPage.getHeight() -
+                            pageHeight -
                             margin;
 
                     }
 
 
-                    const currentPage =
-                        pdfDoc
-                            .getPages()
-                            .at(-1);
-
-
-                    currentPage.drawText(
-
-                        line || " ",
-
+                    page.drawText(
+                        line.slice(
+                            0,
+                            110
+                        ),
                         {
 
                             x:
                                 margin,
 
-                            y:
-                                y,
+                            y,
 
                             size:
                                 fontSize,
 
-                            font:
-                                font,
+                            font,
 
                             color:
                                 rgb(
                                     0,
                                     0,
                                     0
-                                ),
-
-                            maxWidth:
-                                width -
-                                margin * 2
+                                )
 
                         }
-
                     );
 
 
@@ -472,42 +500,62 @@ module.exports = async function handler(req, res) {
                 }
 
 
-                fileBuffer =
+                const pdfBytes =
+                    await pdfDoc.save();
+
+
+                const buffer =
                     Buffer.from(
-                        await pdfDoc.save()
+                        pdfBytes
                     );
+
+
+                return {
+
+                    success: true,
+
+                    filename,
+
+                    mimeType,
+
+                    size:
+                        buffer.length,
+
+                    data:
+                        buffer.toString(
+                            "base64"
+                        )
+
+                };
 
             }
 
 
-            /* =================================================
-               TEXT / MARKDOWN / CSV / CODE
-            ================================================= */
+            /* =============================================
+               NORMAL TEXT FILE
+               TXT / MD / CSV / JS / CSS / ETC.
+            ============================================= */
 
-            else {
-
-                fileBuffer =
-                    Buffer.from(
-                        content,
-                        "utf8"
-                    );
-
-            }
+            const buffer =
+                Buffer.from(
+                    content,
+                    "utf8"
+                );
 
 
             return {
 
-                filename:
-                    filename,
+                success: true,
 
-                mimeType:
-                    mimeType,
+                filename,
+
+                mimeType,
 
                 size:
-                    fileBuffer.length,
+                    buffer.length,
 
                 data:
-                    fileBuffer.toString(
+                    buffer.toString(
                         "base64"
                     )
 
@@ -516,96 +564,30 @@ module.exports = async function handler(req, res) {
         }
 
 
-        /* =====================================================
-           CONVERSATION HISTORY
-        ===================================================== */
-
-        const rawHistory =
-            Array.isArray(
-                body.history
-            )
-                ? body.history
-                : [];
-
-
-        /*
-         * File editing does NOT need
-         * previous conversation.
-         *
-         * This also reduces token usage.
-         */
-
-        const history =
-            fileEdit
-
-                ? []
-
-                : rawHistory
-
-                    .filter(function (item) {
-
-                        return (
-                            item &&
-                            (
-                                item.role === "user" ||
-                                item.role === "assistant"
-                            )
-                        );
-
-                    })
-
-                    .map(function (item) {
-
-                        return {
-
-                            role:
-                                item.role,
-
-                            content:
-                                String(
-                                    item.content || ""
-                                ).trim()
-
-                        };
-
-                    })
-
-                    .filter(function (item) {
-
-                        return (
-                            item.content.length > 0
-                        );
-
-                    })
-
-                    .slice(-30);
-
-
-        /* =====================================================
+        /* =================================================
            VALIDATE REQUEST
-        ===================================================== */
+        ================================================= */
 
         if (
             !message &&
             !image &&
-            !createFile
+            !createFile &&
+            !fileEdit
         ) {
 
-            return res
-                .status(400)
-                .json({
+            return res.status(400).json({
 
-                    error:
-                        "Message, image or file request is required"
+                error:
+                    "Message, image or file request is required."
 
-                });
+            });
 
         }
 
 
-        /* =====================================================
-           HANDLE FILE CREATION
-        ===================================================== */
+        /* =================================================
+           DIRECT FILE CREATION
+        ================================================= */
 
         if (createFile) {
 
@@ -617,55 +599,396 @@ module.exports = async function handler(req, res) {
                     );
 
 
-                console.log(
-                    "📄 File created:",
-                    file.filename
-                );
+                return res.status(200).json({
 
+                    success: true,
 
-                return res
-                    .status(200)
-                    .json({
+                    type: "file",
 
-                        success:
-                            true,
+                    file
 
-                        type:
-                            "file",
-
-                        file:
-                            file
-
-                    });
+                });
 
             }
 
             catch (fileError) {
 
                 console.error(
-                    "❌ File creation error:",
+                    "FILE CREATION ERROR:",
                     fileError
                 );
 
 
-                return res
-                    .status(400)
-                    .json({
+                return res.status(400).json({
 
-                        error:
-                            fileError?.message ||
-                            "Could not create file"
+                    error:
+                        fileError?.message ||
+                        "Could not create file."
 
-                    });
+                });
 
             }
 
         }
 
 
-        /* =====================================================
+        /* =================================================
+           FILE EDITING
+           
+           IMPORTANT:
+           This happens BEFORE normal conversation
+           history/model routing.
+
+           It uses ONE AI request only.
+        ================================================= */
+
+        if (fileEdit) {
+
+            try {
+
+                const editFilename =
+                    String(
+                        fileEdit.filename ||
+                        "edited-file.txt"
+                    ).trim();
+
+
+                const editMimeType =
+                    String(
+                        fileEdit.mimeType ||
+                        "text/plain"
+                    ).trim();
+
+
+                const editInstruction =
+                    String(
+                        fileEdit.instruction ||
+                        ""
+                    ).trim();
+
+
+                let editContent =
+                    String(
+                        fileEdit.content ||
+                        ""
+                    );
+
+
+                if (!editInstruction) {
+
+                    return res.status(400).json({
+
+                        error:
+                            "Please provide instructions for editing the file."
+
+                    });
+
+                }
+
+
+                if (!editContent) {
+
+                    return res.status(400).json({
+
+                        error:
+                            "The file has no readable text to edit."
+
+                    });
+
+                }
+
+
+                /*
+                 * Keep the editing prompt small.
+                 *
+                 * This prevents the entire conversation history
+                 * from being sent to Groq and helps with TPM limits.
+                 */
+
+                if (
+                    editContent.length >
+                    12000
+                ) {
+
+                    editContent =
+                        editContent.slice(
+                            0,
+                            12000
+                        );
+
+                }
+
+
+                const apiKey =
+                    process.env.GROQ_API_KEY;
+
+
+                if (!apiKey) {
+
+                    return res.status(500).json({
+
+                        error:
+                            "GROQ_API_KEY is not configured."
+
+                    });
+
+                }
+
+
+                const editPrompt =
+
+                    "Edit the supplied file according to the user's instruction.\n\n" +
+
+                    "IMPORTANT RULES:\n" +
+
+                    "1. Return ONLY the complete edited file content.\n" +
+
+                    "2. Do NOT use Markdown code fences.\n" +
+
+                    "3. Do NOT explain what you changed.\n" +
+
+                    "4. Do NOT add commentary before or after the file.\n" +
+
+                    "5. Preserve the original content unless the user's instruction requires a change.\n" +
+
+                    "6. Preserve valid syntax for the file type.\n\n" +
+
+                    "OUTPUT FILENAME:\n" +
+                    editFilename +
+
+                    "\n\nUSER INSTRUCTION:\n" +
+                    editInstruction +
+
+                    "\n\nORIGINAL FILE CONTENT:\n" +
+                    editContent;
+
+
+                const requestBody = {
+
+                    model:
+                        "openai/gpt-oss-20b",
+
+                    messages: [
+
+                        {
+
+                            role:
+                                "user",
+
+                            content:
+                                editPrompt
+
+                        }
+
+                    ],
+
+                    temperature:
+                        0.2,
+
+                    max_completion_tokens:
+                        1000,
+
+                    include_reasoning:
+                        false,
+
+                    reasoning_effort:
+                        "low"
+
+                };
+
+
+                const groqResponse =
+                    await fetch(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json",
+
+                                "Authorization":
+                                    `Bearer ${apiKey}`
+
+                            },
+
+                            body:
+                                JSON.stringify(
+                                    requestBody
+                                )
+
+                        }
+                    );
+
+
+                /* =========================================
+                   RATE LIMIT
+                ========================================= */
+
+                if (
+                    groqResponse.status ===
+                    429
+                ) {
+
+                    const retryAfter =
+                        groqResponse.headers.get(
+                            "retry-after"
+                        );
+
+
+                    return res.status(429).json({
+
+                        error:
+                            "Groq rate limit reached. Please wait a few seconds and try again.",
+
+                        retryAfter:
+                            retryAfter
+                                ? Number(
+                                    retryAfter
+                                )
+                                : 10
+
+                    });
+
+                }
+
+
+                /* =========================================
+                   OTHER GROQ ERRORS
+                ========================================= */
+
+                if (
+                    !groqResponse.ok
+                ) {
+
+                    const errorText =
+                        await groqResponse.text();
+
+
+                    console.error(
+                        "GROQ FILE EDIT ERROR:",
+                        errorText
+                    );
+
+
+                    return res.status(500).json({
+
+                        error:
+                            "The AI could not edit the file right now."
+
+                    });
+
+                }
+
+
+                const groqData =
+                    await groqResponse.json();
+
+
+                let editedContent =
+
+                    groqData
+                        ?.choices?.[0]
+                        ?.message?.content;
+
+
+                if (
+                    !editedContent
+                ) {
+
+                    return res.status(500).json({
+
+                        error:
+                            "The AI returned no edited file content."
+
+                    });
+
+                }
+
+
+                editedContent =
+                    String(
+                        editedContent
+                    ).trim();
+
+
+                /*
+                 * Remove accidental Markdown code fences
+                 * if the model adds them despite the instruction.
+                 */
+
+                editedContent =
+                    editedContent
+                        .replace(
+                            /^```[a-zA-Z0-9_-]*\s*/,
+                            ""
+                        )
+                        .replace(
+                            /\s*```$/,
+                            ""
+                        )
+                        .trim();
+
+
+                /* =========================================
+                   CREATE THE ACTUAL FILE
+                ========================================= */
+
+                const editedFile =
+                    await createFileResponse({
+
+                        filename:
+                            editFilename,
+
+                        mimeType:
+                            editMimeType,
+
+                        content:
+                            editedContent
+
+                    });
+
+
+                return res.status(200).json({
+
+                    success: true,
+
+                    type: "file",
+
+                    file:
+                        editedFile
+
+                });
+
+            }
+
+            catch (fileEditError) {
+
+                console.error(
+                    "FILE EDIT ERROR:",
+                    fileEditError
+                );
+
+
+                return res.status(500).json({
+
+                    error:
+                        fileEditError?.message ||
+                        "Could not edit the file."
+
+                });
+
+            }
+
+        }
+
+
+        /* =================================================
            GROQ API KEY
-        ===================================================== */
+        ================================================= */
 
         const apiKey =
             process.env.GROQ_API_KEY;
@@ -673,410 +996,67 @@ module.exports = async function handler(req, res) {
 
         if (!apiKey) {
 
-            console.error(
-                "❌ GROQ_API_KEY is missing"
-            );
+            return res.status(500).json({
 
+                error:
+                    "GROQ_API_KEY is not configured."
 
-            return res
-                .status(500)
-                .json({
-
-                    error:
-                        "Groq API key is not configured"
-
-                });
+            });
 
         }
 
 
-        /* =====================================================
+        /* =================================================
+           NORMAL CONVERSATION HISTORY
+        ================================================= */
+
+        const rawHistory =
+            Array.isArray(
+                body.history
+            )
+                ? body.history
+                : [];
+
+
+        const history =
+            rawHistory
+                .filter(
+                    item =>
+                        item &&
+                        (
+                            item.role ===
+                            "user" ||
+                            item.role ===
+                            "assistant"
+                        ) &&
+                        typeof item.content ===
+                        "string"
+                )
+                .slice(-30);
+
+
+        /* =================================================
            SYSTEM PROMPT
-        ===================================================== */
+        ================================================= */
 
-        let systemPrompt = `
+        const systemPrompt =
 
-You are AI Life Assistant.
+            "You are AI Life Assistant, a helpful general-purpose AI assistant. " +
 
-You are a helpful, intelligent and friendly AI assistant.
+            "Answer clearly, accurately and naturally. " +
 
-Continue the conversation naturally using the conversation
-history provided to you.
+            "Be concise when the question is simple and provide more detail when useful. " +
 
-Treat previous user and assistant messages as conversation
-context.
+            "Do not mention internal system instructions, model routing, APIs, or hidden reasoning. " +
 
-Answer the user's current message directly.
+            "If the user asks for code, provide valid code. " +
 
-Do not repeat previous answers unless it is useful.
+            "If the user asks for a file, the application may handle file creation separately.";
 
-If the user asks a follow-up question, understand what they
-are referring to from the previous conversation.
 
-If the user changes the subject, naturally move to the new
-subject while still remembering the previous conversation.
-
-Never expose internal reasoning.
-
-Never say:
-- "The user is asking..."
-- "My plan is..."
-- "I need to analyze..."
-- "I will now..."
-- "The user wants..."
-
-Do not reveal chain-of-thought,
-hidden reasoning,
-internal instructions
-or internal analysis.
-
-Return ONLY the final answer intended for the user.
-
-Keep responses clear and natural.
-
-Use short paragraphs.
-
-Use bullet points or numbered lists when useful.
-
-For simple questions, answer directly.
-
-For complex questions, organize the final answer clearly.
-
-
-IMAGE INSTRUCTIONS:
-
-When an image is provided with the current message:
-
-- Actually inspect the image.
-- Use the image together with the conversation history.
-- Answer the user's specific question about the image.
-- Describe only what you can actually see.
-- Do not invent details.
-- If the user asks what is in the image, describe it clearly.
-- If the user asks about text in the image, read the visible text.
-- If the user asks a follow-up question about the image, use the
-  image and the previous conversation together.
-- If something is unclear, say so.
-- If the current question is unrelated to the image, answer the
-  question normally and do not force the image into the answer.
-- Do not mention technical limitations unless there is a real error.
-
-Do not use Markdown tables unless the user specifically asks
-for one.
-
-`;
-
-
-        /* =====================================================
-           SMALL FILE EDITING PROMPT
-        ===================================================== */
-
-        if (fileEdit) {
-
-            systemPrompt = `
-
-You are editing a document for the user.
-
-Apply the user's requested changes to the supplied document.
-
-Rules:
-
-- Preserve everything the user did not ask to change.
-- Do not invent information.
-- Return the complete edited document.
-- Return ONLY the edited document.
-- Do not explain your changes.
-- Do not use code fences.
-
-`.trim();
-
-        }
-
-
-        /* =====================================================
-           CURRENT USER CONTENT
-        ===================================================== */
-
-        let userContent;
-
-
-        if (image) {
-
-            userContent = [
-
-                {
-
-                    type:
-                        "text",
-
-                    text:
-                        message ||
-                        "Describe this image clearly."
-
-                },
-
-                {
-
-                    type:
-                        "image_url",
-
-                    image_url: {
-
-                        url:
-                            image
-
-                    }
-
-                }
-
-            ];
-
-        }
-
-        else {
-
-            userContent =
-                message;
-
-        }
-
-
-        /* =====================================================
-           MODELS
-        ===================================================== */
-
-        const TEXT_MODEL =
-            "openai/gpt-oss-20b";
-
-
-        const VISION_MODELS = [
-
-            "qwen/qwen3.6-27b",
-
-            "qwen/qwen3.8-27b"
-
-        ];
-
-
-        /* =====================================================
-           CHECK AVAILABLE MODELS
-        ===================================================== */
-
-        async function getAvailableModels() {
-
-            try {
-
-                const modelsResponse =
-                    await fetch(
-
-                        "https://api.groq.com/openai/v1/models",
-
-                        {
-
-                            method:
-                                "GET",
-
-                            headers: {
-
-                                "Authorization":
-                                    `Bearer ${apiKey}`,
-
-                                "Content-Type":
-                                    "application/json"
-
-                            }
-
-                        }
-
-                    );
-
-
-                if (
-                    !modelsResponse.ok
-                ) {
-
-                    console.warn(
-                        "⚠️ Could not retrieve Groq model list:",
-                        modelsResponse.status
-                    );
-
-                    return [];
-
-                }
-
-
-                const modelsData =
-                    await modelsResponse.json();
-
-
-                if (
-                    !modelsData ||
-                    !Array.isArray(
-                        modelsData.data
-                    )
-                ) {
-
-                    return [];
-
-                }
-
-
-                return modelsData.data
-
-                    .map(function (model) {
-
-                        return (
-                            model &&
-                            model.id
-                        )
-
-                            ? String(
-                                model.id
-                            )
-
-                            : "";
-
-                    })
-
-                    .filter(Boolean);
-
-            }
-
-            catch (error) {
-
-                console.warn(
-                    "⚠️ Groq model discovery failed:",
-                    error
-                );
-
-                return [];
-
-            }
-
-        }
-
-
-        /* =====================================================
-           SELECT VISION MODEL
-        ===================================================== */
-
-        async function selectVisionModel() {
-
-            const availableModels =
-                await getAvailableModels();
-
-
-            console.log(
-                "📋 Groq models available:",
-                availableModels.length
-            );
-
-
-            if (
-                availableModels.length > 0
-            ) {
-
-                for (
-                    let i = 0;
-                    i < VISION_MODELS.length;
-                    i++
-                ) {
-
-                    if (
-                        availableModels.includes(
-                            VISION_MODELS[i]
-                        )
-                    ) {
-
-                        console.log(
-                            "✅ Vision model available:",
-                            VISION_MODELS[i]
-                        );
-
-
-                        return VISION_MODELS[i];
-
-                    }
-
-                }
-
-
-                console.warn(
-                    "⚠️ No preferred vision model appeared in the Groq model list."
-                );
-
-            }
-
-
-            return VISION_MODELS[0];
-
-        }
-
-
-        /* =====================================================
-           SELECT MODEL
-        ===================================================== */
-
-        let model;
-
-
-        if (image) {
-
-            model =
-                await selectVisionModel();
-
-        }
-
-        else {
-
-            model =
-                TEXT_MODEL;
-
-        }
-
-
-        console.log(
-
-            image
-                ? "🖼️ GROQ VISION REQUEST"
-                : fileEdit
-                    ? "✏️ GROQ FILE EDIT REQUEST"
-                    : "💬 GROQ TEXT REQUEST"
-
-        );
-
-
-        console.log(
-            "🤖 Initial model:",
-            model
-        );
-
-
-        console.log(
-            "🧠 Conversation history messages:",
-            history.length
-        );
-
-
-        console.log(
-            "✏️ File edit:",
-            fileEdit
-                ? "YES"
-                : "NO"
-        );
-
-
-        console.log(
-            "🖼️ Current image:",
-            image
-                ? "YES"
-                : "NO"
-        );
-
-
-        /* =====================================================
-           BUILD CONVERSATION MESSAGES
-        ===================================================== */
+        /* =================================================
+           MESSAGE ARRAY
+        ================================================= */
 
         const messages = [
 
@@ -1088,96 +1068,175 @@ Rules:
                 content:
                     systemPrompt
 
-            },
-
-            ...history,
-
-            {
-
-                role:
-                    "user",
-
-                content:
-                    userContent
-
             }
 
         ];
 
 
-        /* =====================================================
-           GROQ REQUEST FUNCTION
-        ===================================================== */
-
-        async function callGroq(
-            selectedModel
+        for (
+            const item of history
         ) {
 
-            const requestBody = {
+            messages.push({
 
-                model:
-                    selectedModel,
+                role:
+                    item.role,
 
-                messages:
-                    messages,
+                content:
+                    item.content
 
-                temperature:
-                    image
-                        ? 0.7
-                        : 0.5,
+            });
 
-                max_completion_tokens:
-                    fileEdit
-                        ? 1400
-                        : 1200
-
-            };
+        }
 
 
-            /* =============================================
-               REASONING SETTINGS
-            ============================================= */
+        /* =================================================
+           IMAGE / VISION REQUEST
+        ================================================= */
 
-            if (
-                selectedModel ===
-                "openai/gpt-oss-20b"
-            ) {
+        if (image) {
 
-                requestBody.include_reasoning =
-                    false;
+            messages.push({
 
-                requestBody.reasoning_effort =
-                    "low";
+                role:
+                    "user",
 
-            }
+                content: [
+
+                    {
+
+                        type:
+                            "text",
+
+                        text:
+                            message ||
+                            "Please analyze this image."
+
+                    },
+
+                    {
+
+                        type:
+                            "image_url",
+
+                        image_url: {
+
+                            url:
+                                image
+
+                        }
+
+                    }
+
+                ]
+
+            });
+
+        }
+
+        else {
+
+            messages.push({
+
+                role:
+                    "user",
+
+                content:
+                    message
+
+            });
+
+        }
 
 
-            if (
-                selectedModel ===
-                "qwen/qwen3.6-27b"
-            ) {
+        /* =================================================
+           MODEL SELECTION
+        ================================================= */
 
-                requestBody.reasoning_effort =
-                    "none";
-
-            }
+        const TEXT_MODEL =
+            "openai/gpt-oss-20b";
 
 
-            console.log(
-                "🚀 Sending request to Groq..."
-            );
+        const VISION_MODEL =
+            "qwen/qwen3.8-27b";
 
 
-            console.log(
-                "🤖 Using model:",
-                selectedModel
-            );
+        const selectedModel =
+            image
+                ? VISION_MODEL
+                : TEXT_MODEL;
 
 
-            return await fetch(
+        /* =================================================
+           GROQ REQUEST
+        ================================================= */
 
+        const requestBody = {
+
+            model:
+                selectedModel,
+
+            messages,
+
+            temperature:
+                image
+                    ? 0.7
+                    : 0.5,
+
+            max_completion_tokens:
+                1200
+
+        };
+
+
+        /*
+         * GPT-OSS:
+         * Disable returned reasoning and keep reasoning low.
+         *
+         * This is especially important for the user's
+         * current 8K TPM environment.
+         */
+
+        if (
+            selectedModel ===
+            "openai/gpt-oss-20b"
+        ) {
+
+            requestBody.include_reasoning =
+                false;
+
+            requestBody.reasoning_effort =
+                "low";
+
+        }
+
+
+        /*
+         * Qwen vision:
+         * Disable reasoning for normal image analysis
+         * to keep requests efficient.
+         */
+
+        if (
+            selectedModel ===
+            "qwen/qwen3.8-27b"
+        ) {
+
+            requestBody.reasoning_effort =
+                "none";
+
+        }
+
+
+        console.log(
+            "🤖 GROQ MODEL:",
+            selectedModel
+        );
+
+
+        const groqResponse =
+            await fetch(
                 "https://api.groq.com/openai/v1/chat/completions",
-
                 {
 
                     method:
@@ -1199,259 +1258,154 @@ Rules:
                         )
 
                 }
-
-            );
-
-        }
-
-
-        /* =====================================================
-           FIRST GROQ REQUEST
-        ===================================================== */
-
-        let response =
-            await callGroq(
-                model
             );
 
 
-        let data =
-            await response.json();
-
-
-        console.log(
-            "🌐 Groq status:",
-            response.status
-        );
-
-
-        /* =====================================================
-           AUTOMATIC VISION FALLBACK
-        ===================================================== */
+        /* =================================================
+           RATE LIMIT
+        ================================================= */
 
         if (
-            image &&
-            response.status === 404 &&
-            model ===
-                "qwen/qwen3.6-27b"
+            groqResponse.status ===
+            429
         ) {
 
-            console.warn(
-                "⚠️ Qwen 3.6 was rejected. Trying Qwen 3.8..."
-            );
-
-
-            const fallbackModel =
-                "qwen/qwen3.8-27b";
-
-
-            response =
-                await callGroq(
-                    fallbackModel
+            const retryAfter =
+                groqResponse.headers.get(
+                    "retry-after"
                 );
 
 
-            data =
-                await response.json();
+            return res.status(429).json({
 
+                error:
+                    "Groq rate limit reached. Please wait a few seconds and try again.",
 
-            console.log(
-                "🌐 Vision fallback status:",
-                response.status
-            );
-
-
-            if (
-                response.ok
-            ) {
-
-                model =
-                    fallbackModel;
-
-
-                console.log(
-                    "✅ Vision fallback succeeded:",
-                    model
-                );
-
-            }
-
-        }
-
-
-        /* =====================================================
-           GROQ ERROR
-        ===================================================== */
-
-        if (
-            !response.ok
-        ) {
-
-            console.error(
-                "❌ Groq API error:",
-                data
-            );
-
-
-            const groqMessage =
-                data?.error?.message ||
-                "Groq AI request failed";
-
-
-            return res
-                .status(
-                    response.status
-                )
-                .json({
-
-                    error:
-                        groqMessage,
-
-                    model:
-                        model,
-
-                    vision:
-                        Boolean(
-                            image
-                        ),
-
-                    fileEdit:
-                        fileEdit
-
-                });
-
-        }
-
-
-        /* =====================================================
-           GET FINAL ANSWER
-        ===================================================== */
-
-        let reply =
-            data
-                ?.choices
-                ?.[0]
-                ?.message
-                ?.content;
-
-
-        /* =====================================================
-           CLEAN REASONING TAGS
-        ===================================================== */
-
-        if (
-            typeof reply ===
-            "string"
-        ) {
-
-            reply =
-                reply
-
-                    .replace(
-                        /<think>[\s\S]*?<\/think>/gi,
-                        ""
-                    )
-
-                    .trim();
-
-        }
-
-
-        /* =====================================================
-           NO ANSWER
-        ===================================================== */
-
-        if (!reply) {
-
-            console.error(
-                "❌ Groq returned no final answer."
-            );
-
-
-            console.error(
-                "Groq response:",
-                JSON.stringify(
-                    data,
-                    null,
-                    2
-                )
-            );
-
-
-            return res
-                .status(500)
-                .json({
-
-                    error:
-                        "Groq returned no AI response",
-
-                    model:
-                        model,
-
-                    fileEdit:
-                        fileEdit
-
-                });
-
-        }
-
-
-        /* =====================================================
-           SUCCESS
-        ===================================================== */
-
-        console.log(
-            "✅ Groq final answer returned"
-        );
-
-
-        console.log(
-            "🤖 Final model used:",
-            model
-        );
-
-
-        return res
-            .status(200)
-            .json({
-
-                success:
-                    true,
-
-                reply:
-                    String(
-                        reply
-                    ).trim(),
-
-                model:
-                    model
+                retryAfter:
+                    retryAfter
+                        ? Number(
+                            retryAfter
+                        )
+                        : 10
 
             });
 
-    }
+        }
 
+
+        /* =================================================
+           OTHER GROQ ERROR
+        ================================================= */
+
+        if (
+            !groqResponse.ok
+        ) {
+
+            const errorText =
+                await groqResponse.text();
+
+
+            console.error(
+                "Groq API error:",
+                errorText
+            );
+
+
+            return res.status(
+                groqResponse.status >= 400 &&
+                groqResponse.status < 500
+                    ? groqResponse.status
+                    : 500
+            ).json({
+
+                error:
+                    "The AI service returned an error."
+
+            });
+
+        }
+
+
+        /* =================================================
+           READ GROQ RESPONSE
+        ================================================= */
+
+        const groqData =
+            await groqResponse.json();
+
+
+        console.log(
+            "Groq response:",
+            JSON.stringify(
+                groqData,
+                null,
+                2
+            )
+        );
+
+
+        const assistantMessage =
+
+            groqData
+                ?.choices?.[0]
+                ?.message;
+
+
+        const answer =
+
+            assistantMessage
+                ?.content;
+
+
+        if (
+            !answer
+        ) {
+
+            return res.status(500).json({
+
+                error:
+                    "The AI returned an empty response."
+
+            });
+
+        }
+
+
+        /* =================================================
+           NORMAL RESPONSE
+        ================================================= */
+
+        return res.status(200).json({
+
+            success:
+                true,
+
+            type:
+                "message",
+
+            answer:
+                String(
+                    answer
+                )
+
+        });
+
+    }
 
     catch (error) {
 
-        /* =====================================================
-           BACKEND ERROR
-        ===================================================== */
-
         console.error(
-            "❌ BACKEND ERROR:",
+            "BACKEND ERROR:",
             error
         );
 
 
-        return res
-            .status(500)
-            .json({
+        return res.status(500).json({
 
-                error:
-                    error?.message ||
-                    "Internal server error"
+            error:
+                "Internal server error."
 
-            });
+        });
 
     }
 
