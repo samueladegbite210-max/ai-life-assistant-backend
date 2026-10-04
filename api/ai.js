@@ -82,10 +82,6 @@ module.exports = async function handler(req, res) {
         const image =
             body.image || null;
 
-
-        const fileEdit =
-            body.fileEdit === true;
-
         /* =====================================================
    FILE CREATION REQUEST
 ===================================================== */
@@ -623,7 +619,7 @@ if (createFile) {
            SYSTEM PROMPT
         ===================================================== */
 
-        const systemPrompt = `
+        let systemPrompt = `
 You are AI Life Assistant.
 
 You are a helpful, intelligent and friendly AI assistant.
@@ -690,6 +686,29 @@ When an image is provided with the current message:
 Do not use Markdown tables unless the user specifically asks
 for one.
 `;
+
+
+        /* =====================================================
+           SMALL PROMPT FOR FILE EDITING
+        ===================================================== */
+
+        if (fileEdit) {
+
+            systemPrompt = `
+You are editing a document for the user.
+
+Apply the user's requested changes to the supplied document.
+
+Rules:
+- Preserve everything the user did not ask to change.
+- Do not invent information.
+- Return the complete edited document.
+- Return ONLY the edited document.
+- Do not explain your changes.
+- Do not use code fences.
+`.trim();
+
+        }
 
 
         /* =====================================================
