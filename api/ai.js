@@ -1377,18 +1377,23 @@ module.exports = async function handler(req, res) {
 
         return res.status(200).json({
 
-            success:
-                true,
+    success:
+        true,
 
-            type:
-                "message",
+    type:
+        "message",
 
-            answer:
-                String(
-                    answer
-                )
+    reply:
+        String(
+            answer
+        ),
 
-        });
+    answer:
+        String(
+            answer
+        )
+
+});
 
     }
 
